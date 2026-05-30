@@ -1,5 +1,6 @@
-# render.yaml — Render.com Deployment Config
-# Deploy from: https://dashboard.render.com/select-repo
+# render.yaml — Render.com Deployment Config for LendLoop
+# Uses your existing Neon PostgreSQL database
+# Deploy at: https://dashboard.render.com → New → Blueprint
 
 services:
   - type: web
@@ -7,9 +8,9 @@ services:
     runtime: python
     region: singapore
     plan: free
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    rootDir: backend
     envVars:
       - key: APP_ENV
         value: production
@@ -17,27 +18,28 @@ services:
         value: "False"
       - key: SECRET_KEY
         generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+      # Set these manually in Render dashboard → Environment:
       - key: DATABASE_URL
-        fromDatabase:
-          name: lendloop-db
-          property: connectionString
-      - key: FIREBASE_PROJECT_ID
-        sync: false
+        sync: false          # paste your Neon URL in the dashboard
       - key: FIREBASE_CREDENTIALS_PATH
-        value: ./firebase-adminsdk.json
+        value: /etc/secrets/firebase-adminsdk.json
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      - key: QR_TOKEN_SECRET
-        generateValue: true
+      - key: CLOUDINARY_UPLOAD_PRESET
+        value: lendloop_items
       - key: ALLOWED_EMAIL_DOMAINS
         value: vit.ac.in,vitstudent.ac.in
-
-  - type: pserv
-    name: lendloop-db
-    runtime: postgresql
-    plan: free
-    region: singapore
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: QR_TOKEN_SECRET
+        generateValue: true

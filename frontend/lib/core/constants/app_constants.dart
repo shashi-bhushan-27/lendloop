@@ -4,7 +4,7 @@ class AppConstants {
   AppConstants._();
 
   // API
-  static const String baseUrl = 'http://172.17.32.90:8000/api/v1';
+  static const String baseUrl = 'https://lendloop-xnuy.onrender.com/api/v1';
   static const String apiVersion = 'v1';
   static const int connectTimeout = 30000; // ms
   static const int receiveTimeout = 30000; // ms

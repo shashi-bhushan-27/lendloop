@@ -18,6 +18,10 @@ class BorrowRequestModel {
   final String? rejectionReason;
   final DateTime createdAt;
 
+  // Item details fetched separately
+  String? itemTitle;
+  String? itemImageUrl;
+
   BorrowRequestModel({
     required this.id,
     required this.itemId,
@@ -29,36 +33,79 @@ class BorrowRequestModel {
     required this.status,
     this.rejectionReason,
     required this.createdAt,
+    this.itemTitle,
+    this.itemImageUrl,
   });
 
-  int get requestedDays => proposedEndDate.difference(proposedStartDate).inDays + 1;
+  // Days = end - start + 1 (inclusive), calculated from the stored dates
+  int get requestedDays =>
+      proposedEndDate.difference(proposedStartDate).inDays + 1;
 
-  factory BorrowRequestModel.fromJson(Map<String, dynamic> j) => BorrowRequestModel(
-    id: j['id'] as String,
-    itemId: j['item_id'] as String,
-    borrowerId: j['borrower_id'] as String,
-    lenderId: j['lender_id'] as String,
-    message: j['message'] as String?,
-    proposedStartDate: DateTime.tryParse(j['proposed_start_date'] as String? ?? '') ?? DateTime.now(),
-    proposedEndDate: DateTime.tryParse(j['proposed_end_date'] as String? ?? '') ?? DateTime.now(),
-    status: BorrowRequestStatus.values.firstWhere(
-      (e) => e.name == (j['status'] as String? ?? 'pending'),
-      orElse: () => BorrowRequestStatus.pending,
-    ),
-    rejectionReason: j['rejection_reason'] as String?,
-    createdAt: DateTime.tryParse(j['created_at'] as String? ?? '') ?? DateTime.now(),
-  );
+  factory BorrowRequestModel.fromJson(Map<String, dynamic> j) =>
+      BorrowRequestModel(
+        id: j['id'] as String,
+        itemId: j['item_id'] as String,
+        borrowerId: j['borrower_id'] as String,
+        lenderId: j['lender_id'] as String,
+        message: j['message'] as String?,
+        proposedStartDate:
+            DateTime.tryParse(j['proposed_start_date'] as String? ?? '') ??
+                DateTime.now(),
+        proposedEndDate:
+            DateTime.tryParse(j['proposed_end_date'] as String? ?? '') ??
+                DateTime.now(),
+        status: BorrowRequestStatus.values.firstWhere(
+          (e) => e.name == (j['status'] as String? ?? 'pending'),
+          orElse: () => BorrowRequestStatus.pending,
+        ),
+        rejectionReason: j['rejection_reason'] as String?,
+        createdAt:
+            DateTime.tryParse(j['created_at'] as String? ?? '') ??
+                DateTime.now(),
+      );
 }
 
 // --- Provider ---
-final borrowRequestsProvider = FutureProvider<Map<String, List<BorrowRequestModel>>>((ref) async {
+final borrowRequestsProvider =
+    FutureProvider<Map<String, List<BorrowRequestModel>>>((ref) async {
   final received = await ApiClient.instance.get('/borrow/received');
-  final sent     = await ApiClient.instance.get('/borrow/sent');
+  final sent = await ApiClient.instance.get('/borrow/sent');
+
+  final incoming = (received.data as List? ?? [])
+      .map((e) => BorrowRequestModel.fromJson(e as Map<String, dynamic>))
+      .toList();
+  final outgoing = (sent.data as List? ?? [])
+      .map((e) => BorrowRequestModel.fromJson(e as Map<String, dynamic>))
+      .toList();
+
+  // Fetch item details for each unique item_id
+  final allRequests = [...incoming, ...outgoing];
+  final uniqueItemIds = allRequests.map((r) => r.itemId).toSet();
+
+  for (final itemId in uniqueItemIds) {
+    try {
+      final resp = await ApiClient.instance.get('/items/$itemId');
+      final data = resp.data as Map<String, dynamic>;
+      final title = data['title'] as String? ?? 'Item';
+      final images = data['image_urls'] as List?;
+      final imageUrl = (images != null && images.isNotEmpty)
+          ? images.first as String?
+          : null;
+
+      for (final r in allRequests) {
+        if (r.itemId == itemId) {
+          r.itemTitle = title;
+          r.itemImageUrl = imageUrl;
+        }
+      }
+    } catch (_) {
+      // If item fetch fails, show "Unknown Item"
+    }
+  }
+
   return {
-    'incoming': (received.data as List? ?? [])
-        .map((e) => BorrowRequestModel.fromJson(e as Map<String, dynamic>)).toList(),
-    'outgoing': (sent.data as List? ?? [])
-        .map((e) => BorrowRequestModel.fromJson(e as Map<String, dynamic>)).toList(),
+    'incoming': incoming,
+    'outgoing': outgoing,
   };
 });
 
@@ -80,7 +127,10 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
   }
 
   @override
-  void dispose() { _tabs.dispose(); super.dispose(); }
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   Future<void> _approve(String requestId) async {
     try {
@@ -88,20 +138,23 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
       ref.invalidate(borrowRequestsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Request approved!'), backgroundColor: AppColors.success),
+          const SnackBar(
+              content: Text('Request approved!'),
+              backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to approve: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+              content: Text('Failed to approve: $e'),
+              backgroundColor: AppColors.error),
         );
       }
     }
   }
 
   Future<void> _reject(String requestId) async {
-    // Ask for rejection reason
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -116,11 +169,15 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
           maxLines: 2,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Decline', style: TextStyle(color: Colors.white)),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Decline',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -129,7 +186,10 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
     final reason = reasonCtrl.text.trim();
     if (reason.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a reason (min 5 characters)'), backgroundColor: AppColors.warning),
+        const SnackBar(
+            content:
+                Text('Please enter a reason (min 5 characters)'),
+            backgroundColor: AppColors.warning),
       );
       return;
     }
@@ -139,13 +199,17 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
       ref.invalidate(borrowRequestsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Request declined'), backgroundColor: AppColors.success),
+          const SnackBar(
+              content: Text('Request declined'),
+              backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decline: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+              content: Text('Failed to decline: $e'),
+              backgroundColor: AppColors.error),
         );
       }
     }
@@ -168,24 +232,30 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
           controller: _tabs,
           tabs: const [
             Tab(text: 'Incoming', icon: Icon(Icons.inbox_outlined, size: 18)),
-            Tab(text: 'My Requests', icon: Icon(Icons.send_outlined, size: 18)),
+            Tab(
+                text: 'My Requests',
+                icon: Icon(Icons.send_outlined, size: 18)),
           ],
         ),
       ),
       body: requestsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.error_outline, size: 56, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text('Error: $e', textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error)),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => ref.invalidate(borrowRequestsProvider),
-              child: const Text('Retry'),
-            ),
-          ]),
+          child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline,
+                    size: 56, color: AppColors.error),
+                const SizedBox(height: 12),
+                Text('Error: $e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.error)),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => ref.invalidate(borrowRequestsProvider),
+                  child: const Text('Retry'),
+                ),
+              ]),
         ),
         data: (data) => TabBarView(
           controller: _tabs,
@@ -203,7 +273,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
               isIncoming: false,
               onApprove: _approve,
               onReject: _reject,
-              emptyMessage: 'You haven\'t requested to borrow anything yet',
+              emptyMessage: "You haven't requested to borrow anything yet",
               emptyIcon: Icons.send_outlined,
             ),
           ],
@@ -233,12 +303,16 @@ class _RequestList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (requests.isEmpty) {
-      return Center(child: Column(
+      return Center(
+          child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(emptyIcon, size: 64, color: AppColors.textSecondary.withOpacity(0.35)),
+          Icon(emptyIcon,
+              size: 64,
+              color: AppColors.textSecondary.withOpacity(0.35)),
           const SizedBox(height: 12),
-          Text(emptyMessage, style: const TextStyle(color: AppColors.textSecondary),
+          Text(emptyMessage,
+              style: const TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center),
         ],
       ));
@@ -288,6 +362,7 @@ class _RequestCard extends StatelessWidget {
   };
 
   String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'just now';
@@ -298,110 +373,226 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColors[request.status] ?? AppColors.textSecondary;
-    final statusIcon  = _statusIcons[request.status] ?? Icons.help_outline;
+    final statusColor =
+        _statusColors[request.status] ?? AppColors.textSecondary;
+    final statusIcon =
+        _statusIcons[request.status] ?? Icons.help_outline;
+    final itemTitle = request.itemTitle ?? 'Loading item...';
+    final hasImage = request.itemImageUrl != null;
 
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: statusColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-        // Header row
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(statusIcon, color: statusColor, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Item ID: ...${request.itemId.substring(request.itemId.length - 8)}',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(request.status.name,
-              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600)),
-          ),
-        ]),
-
-        const SizedBox(height: 10),
-
-        // Dates
-        Row(children: [
-          const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.textSecondary),
-          const SizedBox(width: 4),
-          Text(
-            '${_fmt(request.proposedStartDate)} → ${_fmt(request.proposedEndDate)}  (${request.requestedDays} days)',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-        ]),
-
-        // Message
-        if (request.message != null && request.message!.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            '"${request.message}"',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic),
-            maxLines: 2, overflow: TextOverflow.ellipsis,
-          ),
-        ],
-
-        // Rejection reason
-        if (request.rejectionReason != null) ...[
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.error.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text('Reason: ${request.rejectionReason}',
-              style: const TextStyle(color: AppColors.error, fontSize: 11)),
-          ),
-        ],
-
-        const SizedBox(height: 6),
-        Text(_timeAgo(request.createdAt),
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-
-        // Approve / Decline buttons (incoming pending only)
-        if (isIncoming && request.status == BorrowRequestStatus.pending) ...[
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(
-              onPressed: () => onReject(request.id),
-              icon: const Icon(Icons.close, size: 16),
-              label: const Text('Decline'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Item Image + Name Header ──────────────────────────────
+          ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(14)),
+            child: SizedBox(
+              height: 120,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Image or gradient placeholder
+                  if (hasImage)
+                    Image.network(
+                      request.itemImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        decoration: const BoxDecoration(
+                            gradient: AppColors.primaryGradient),
+                        child: const Icon(Icons.image_not_supported,
+                            color: Colors.white54, size: 40),
+                      ),
+                    )
+                  else
+                    Container(
+                      decoration: const BoxDecoration(
+                          gradient: AppColors.primaryGradient),
+                      child: const Icon(Icons.inventory_2_outlined,
+                          color: Colors.white54, size: 40),
+                    ),
+                  // Gradient overlay at bottom
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                      child: Text(
+                        itemTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  // Status badge top-right
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(statusIcon,
+                              color: Colors.white, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            request.status.name.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: ElevatedButton.icon(
-              onPressed: () => onApprove(request.id),
-              icon: const Icon(Icons.check, size: 16, color: Colors.white),
-              label: const Text('Approve', style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            )),
-          ]),
+            ),
+          ),
+
+          // ── Details ───────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Dates + duration
+                Row(children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 13, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${_fmt(request.proposedStartDate)} → ${_fmt(request.proposedEndDate)}',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${request.requestedDays} day${request.requestedDays != 1 ? "s" : ""}',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ]),
+
+                // Message
+                if (request.message != null &&
+                    request.message!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '"${request.message}"',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+
+                // Rejection reason
+                if (request.rejectionReason != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                        'Reason: ${request.rejectionReason}',
+                        style: const TextStyle(
+                            color: AppColors.error, fontSize: 11)),
+                  ),
+                ],
+
+                const SizedBox(height: 4),
+                Text(_timeAgo(request.createdAt),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11)),
+
+                // Approve / Decline buttons (incoming pending only)
+                if (isIncoming &&
+                    request.status == BorrowRequestStatus.pending) ...[
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                        child: OutlinedButton.icon(
+                      onPressed: () => onReject(request.id),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Decline'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                      ),
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: ElevatedButton.icon(
+                      onPressed: () => onApprove(request.id),
+                      icon: const Icon(Icons.check,
+                          size: 16, color: Colors.white),
+                      label: const Text('Approve',
+                          style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success),
+                    )),
+                  ]),
+                ],
+              ],
+            ),
+          ),
         ],
-      ]),
+      ),
     );
   }
 }

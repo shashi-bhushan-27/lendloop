@@ -54,6 +54,7 @@ class AuthService {
     required String email,
     required String password,
     required String fullName,
+    String regNumber = '',
   }) async {
     try {
       if (!isVITEmail(email)) {
@@ -65,7 +66,8 @@ class AuthService {
       );
       await credential.user!.updateDisplayName(fullName);
       await credential.user!.sendEmailVerification();
-      return await _exchangeFirebaseToken(credential.user!, fullName: fullName);
+      return await _exchangeFirebaseToken(credential.user!,
+          fullName: fullName, regNumber: regNumber);
     } on FirebaseAuthException catch (e) {
       return Left(AuthFailure(_mapFirebaseError(e.code)));
     } catch (e) {
@@ -77,6 +79,7 @@ class AuthService {
   Future<Either<Failure, Map<String, dynamic>>> _exchangeFirebaseToken(
     User firebaseUser, {
     String fullName = '',
+    String regNumber = '',
   }) async {
     try {
       // Force refresh to always get a fresh, valid token
@@ -88,6 +91,7 @@ class AuthService {
       final response = await _api.post('/auth/login', data: {
         'firebase_token': idToken,
         'full_name': fullName,
+        'reg_number': regNumber,
       });
       final data = response.data as Map<String, dynamic>;
       await _storage.write(

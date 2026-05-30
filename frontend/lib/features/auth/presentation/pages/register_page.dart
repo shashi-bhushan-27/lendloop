@@ -41,6 +41,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
       fullName: _nameCtrl.text.trim(),
+      regNumber: _regNumberCtrl.text.trim(),
     );
     setState(() => _isLoading = false);
     if (!mounted) return;

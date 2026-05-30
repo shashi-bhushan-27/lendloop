@@ -23,6 +23,7 @@ class UserUpdate(BaseModel):
     department: Optional[str] = None
     phone_number: Optional[str] = None
     avatar_url: Optional[str] = None
+    reg_number: Optional[str] = None   # Allow updating registration number
 
 
 class UserResponse(UserBase):

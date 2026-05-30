@@ -20,7 +20,8 @@ import uuid
 async def register_or_login_user(
     firebase_id_token: str,
     db: AsyncSession,
-    full_name: str = ""
+    full_name: str = "",
+    reg_number: str = ""
 ) -> dict:
     """
     Core auth flow:
@@ -56,6 +57,7 @@ async def register_or_login_user(
                 full_name=full_name or decoded.get("name", email.split("@")[0]),
                 is_email_verified=decoded.get("email_verified", False),
                 status=UserStatus.active,
+                reg_number=reg_number if reg_number else None,
             )
             db.add(user)
             await db.flush()
@@ -65,6 +67,9 @@ async def register_or_login_user(
             # Update email verification status
             user.is_email_verified = decoded.get("email_verified", user.is_email_verified)
             user.status = UserStatus.active  # Ensure active on login
+            # Update reg_number if provided and not already set
+            if reg_number and not user.reg_number:
+                user.reg_number = reg_number
             await db.flush()
             logger.info(f"Existing user logged in: {email}")
 

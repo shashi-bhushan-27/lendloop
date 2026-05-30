@@ -26,13 +26,14 @@ router = APIRouter()
 async def login(
     firebase_token: str = Body(..., embed=True),
     full_name: str = Body(default="", embed=True),
+    reg_number: str = Body(default="", embed=True),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Accepts a Firebase ID token from the Flutter client.
     Validates domain, creates/finds user, returns JWT tokens.
     """
-    result = await register_or_login_user(firebase_token, db, full_name)
+    result = await register_or_login_user(firebase_token, db, full_name, reg_number)
     return {
         "access_token": result["access_token"],
         "refresh_token": result["refresh_token"],

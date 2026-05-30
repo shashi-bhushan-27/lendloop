@@ -17,6 +17,8 @@ engine = create_async_engine(
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     echo=settings.DEBUG,
     future=True,
+    pool_pre_ping=True,      # Test connections before using — fixes "connection is closed"
+    pool_recycle=300,        # Recycle connections every 5 mins to avoid Neon timeouts
 )
 
 # Session factory

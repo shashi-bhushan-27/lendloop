@@ -5,9 +5,11 @@ Centralized settings using Pydantic BaseSettings.
 All configuration is loaded from environment variables.
 """
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Any
 from functools import lru_cache
+
 
 
 class Settings(BaseSettings):
@@ -43,7 +45,23 @@ class Settings(BaseSettings):
         return [d.strip() for d in self.ALLOWED_EMAIL_DOMAINS.split(",")]
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ORIGINS: Any = ["http://localhost:3000", "http://localhost:8080"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [x.strip() for x in v.split(",")]
+        return v
 
     # QR
     QR_TOKEN_SECRET: str = ""

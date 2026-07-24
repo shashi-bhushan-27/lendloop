@@ -36,6 +36,7 @@ backend/*.egg-info/
 
 # Firebase
 firebase-adminsdk-*.json
+backend/lendloop-*.json
 google-services.json
 GoogleService-Info.plist
 firebaseConfig.js

@@ -42,8 +42,12 @@ class User(Base):
     department: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reg_number: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True)
 
+    # Location / Privacy
+    hostel_block: Mapped[str | None] = mapped_column(String(100), nullable=True)  # General area only
+    preferred_pickup_location: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Exact location, private
+
     # Trust & Status
-    trust_score: Mapped[float] = mapped_column(Float, default=50.0)
+    trust_score: Mapped[float] = mapped_column(Float, default=80.0)
     total_lends: Mapped[int] = mapped_column(default=0)
     total_borrows: Mapped[int] = mapped_column(default=0)
     successful_returns: Mapped[int] = mapped_column(default=0)
@@ -69,6 +73,7 @@ class User(Base):
     reviews_received = relationship("Review", back_populates="reviewee", foreign_keys="Review.reviewee_id")
     notifications = relationship("Notification", back_populates="user")
     fcm_tokens = relationship("FCMToken", back_populates="user")
+    trust_score_events = relationship("TrustScoreEvent", back_populates="user")
 
     __table_args__ = (
         Index("ix_users_email_domain", func.split_part(email, "@", 2)),

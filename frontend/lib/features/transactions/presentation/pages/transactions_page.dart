@@ -1,192 +1,503 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/models/transaction_model.dart';
+import 'package:lendloop/providers/auth_provider.dart';
+import 'package:lendloop/providers/transaction_provider.dart';
 import 'package:lendloop/services/api_client.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
-enum TransactionStatus { active, completed, overdue, disputed }
+class TransactionsPage extends ConsumerStatefulWidget {
+  const TransactionsPage({super.key});
 
-class TransactionModel {
-  final String id;
-  final String itemTitle;
-  final String borrowerName;
-  final String lenderName;
-  final int borrowedDays;
-  final DateTime startDate;
-  final DateTime dueDate;
-  final TransactionStatus status;
-  final bool isBorrower;
+  @override
+  ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
+}
 
-  TransactionModel({
-    required this.id, required this.itemTitle,
-    required this.borrowerName, required this.lenderName,
-    required this.borrowedDays, required this.startDate,
-    required this.dueDate, required this.status, required this.isBorrower,
-  });
+class _TransactionsPageState extends ConsumerState<TransactionsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabs;
 
-  factory TransactionModel.fromJson(Map<String, dynamic> j, String currentUserId) {
-    final borrowerId = j['borrower_id'] as String? ?? '';
-    return TransactionModel(
-      id: j['id'] as String,
-      itemTitle: (j['item'] as Map<String, dynamic>?)?['title'] as String? ?? 'Unknown Item',
-      borrowerName: (j['borrower'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'Unknown',
-      lenderName: (j['lender'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'Unknown',
-      borrowedDays: (j['borrowed_days'] as num?)?.toInt() ?? 0,
-      startDate: DateTime.tryParse(j['start_date'] as String? ?? '') ?? DateTime.now(),
-      dueDate: DateTime.tryParse(j['due_date'] as String? ?? '') ?? DateTime.now(),
-      status: TransactionStatus.values.firstWhere(
-        (e) => e.name == (j['status'] as String? ?? 'active'),
-        orElse: () => TransactionStatus.active,
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initiateReturn(String txId) async {
+    try {
+      await ApiClient.instance.post('/transactions/$txId/initiate-return', data: {});
+      ref.invalidate(transactionsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Return initiated. Show the QR code to the lender.'), backgroundColor: AppColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _generateQR(String txId, String qrType) async {
+    try {
+      final response = await ApiClient.instance.post('/qr/generate', data: {
+        'transaction_id': txId,
+        'qr_type': qrType,
+      });
+      final token = response.data['token'] as String?;
+      if (token != null && mounted) {
+        _showQRDialog(token, qrType);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate QR: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  void _showQRDialog(String token, String qrType) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(qrType == 'pickup' ? 'Pickup QR Code' : 'Return QR Code'),
+        content: SizedBox(
+          width: 280,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QrImageView(
+                data: token,
+                version: QrVersions.auto,
+                size: 240,
+                backgroundColor: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Show this to the ${qrType == 'pickup' ? 'borrower' : 'lender'} to scan.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
       ),
-      isBorrower: borrowerId == currentUserId,
+    );
+  }
+
+  Future<void> _uploadEvidence(String txId, String evidenceType) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (image == null) return;
+
+    try {
+      final formData = FormData();
+      formData.files.add(MapEntry(
+        'file',
+        await MultipartFile.fromFile(image.path, filename: 'evidence.jpg'),
+      ));
+      await ApiClient.instance.uploadFile(
+        '/transactions/$txId/evidence?evidence_type=$evidenceType',
+        formData,
+      );
+      ref.invalidate(transactionEvidenceProvider(txId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo uploaded successfully'), backgroundColor: AppColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUserId = ref.watch(currentUserProvider).value?.id;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Transactions'),
+        bottom: TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(text: 'Borrowing'),
+            Tab(text: 'Lending'),
+            Tab(text: 'History'),
+          ],
+        ),
+      ),
+      body: ref.watch(transactionsProvider).when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 56, color: AppColors.error),
+              const SizedBox(height: 12),
+              Text('Error: $e', style: const TextStyle(color: AppColors.error)),
+              TextButton(
+                onPressed: () => ref.invalidate(transactionsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (txs) {
+          final borrowing = txs.where((t) => t.borrowerId == currentUserId && t.isActive).toList();
+          final lending = txs.where((t) => t.lenderId == currentUserId && t.isActive).toList();
+          final history = txs.where((t) => !t.isActive).toList();
+
+          return TabBarView(
+            controller: _tabs,
+            children: [
+              _TransactionList(
+                transactions: borrowing,
+                isBorrowing: true,
+                onInitiateReturn: _initiateReturn,
+                onGenerateQR: _generateQR,
+                onUploadEvidence: _uploadEvidence,
+              ),
+              _TransactionList(
+                transactions: lending,
+                isBorrowing: false,
+                onInitiateReturn: _initiateReturn,
+                onGenerateQR: _generateQR,
+                onUploadEvidence: _uploadEvidence,
+              ),
+              _TransactionList(
+                transactions: history,
+                isBorrowing: false,
+                isHistory: true,
+                onInitiateReturn: _initiateReturn,
+                onGenerateQR: _generateQR,
+                onUploadEvidence: _uploadEvidence,
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-final transactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
-  final response = await ApiClient.instance.get('/transactions');
-  // TODO: pass real currentUserId; for now mark all as borrower for display
-  return (response.data as List? ?? [])
-      .map((e) => TransactionModel.fromJson(e as Map<String, dynamic>, ''))
-      .toList();
-});
+class _TransactionList extends StatelessWidget {
+  final List<TransactionModel> transactions;
+  final bool isBorrowing;
+  final bool isHistory;
+  final Future<void> Function(String) onInitiateReturn;
+  final Future<void> Function(String, String) onGenerateQR;
+  final Future<void> Function(String, String) onUploadEvidence;
 
-class TransactionsPage extends ConsumerWidget {
-  const TransactionsPage({super.key});
-
-  static const _statusColors = {
-    TransactionStatus.active: AppColors.info,
-    TransactionStatus.completed: AppColors.success,
-    TransactionStatus.overdue: AppColors.error,
-    TransactionStatus.disputed: AppColors.warning,
-  };
-
-  static const _statusIcons = {
-    TransactionStatus.active: Icons.swap_horiz_rounded,
-    TransactionStatus.completed: Icons.check_circle_outline,
-    TransactionStatus.overdue: Icons.warning_amber_rounded,
-    TransactionStatus.disputed: Icons.gavel_rounded,
-  };
+  const _TransactionList({
+    required this.transactions,
+    this.isBorrowing = false,
+    this.isHistory = false,
+    required this.onInitiateReturn,
+    required this.onGenerateQR,
+    required this.onUploadEvidence,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final txAsync = ref.watch(transactionsProvider);
+  Widget build(BuildContext context) {
+    if (transactions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isHistory ? Icons.history_rounded : Icons.swap_horiz_rounded,
+              size: 72,
+              color: AppColors.textSecondary.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isHistory ? 'No history yet' : 'No active transactions',
+              style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(transactionsProvider),
-          ),
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: transactions.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, i) => _TransactionCard(
+        tx: transactions[i],
+        isBorrowing: isBorrowing,
+        isHistory: isHistory,
+        onInitiateReturn: onInitiateReturn,
+        onGenerateQR: onGenerateQR,
+        onUploadEvidence: onUploadEvidence,
+      ),
+    );
+  }
+}
+
+class _TransactionCard extends StatelessWidget {
+  final TransactionModel tx;
+  final bool isBorrowing;
+  final bool isHistory;
+  final Future<void> Function(String) onInitiateReturn;
+  final Future<void> Function(String, String) onGenerateQR;
+  final Future<void> Function(String, String) onUploadEvidence;
+
+  const _TransactionCard({
+    required this.tx,
+    required this.isBorrowing,
+    this.isHistory = false,
+    required this.onInitiateReturn,
+    required this.onGenerateQR,
+    required this.onUploadEvidence,
+  });
+
+  Color get _statusColor {
+    switch (tx.status) {
+      case TransactionStatus.awaitingPickup:
+        return AppColors.warning;
+      case TransactionStatus.borrowed:
+        return AppColors.info;
+      case TransactionStatus.returnPending:
+        return AppColors.accent;
+      case TransactionStatus.completed:
+        return AppColors.success;
+      case TransactionStatus.overdue:
+        return AppColors.error;
+      case TransactionStatus.disputed:
+        return AppColors.error;
+      case TransactionStatus.cancelled:
+        return AppColors.textSecondary;
+    }
+  }
+
+  String get _statusLabel {
+    switch (tx.status) {
+      case TransactionStatus.awaitingPickup:
+        return 'Awaiting Pickup';
+      case TransactionStatus.borrowed:
+        return 'Borrowed';
+      case TransactionStatus.returnPending:
+        return 'Return Pending';
+      case TransactionStatus.completed:
+        return 'Completed';
+      case TransactionStatus.overdue:
+        return 'Overdue';
+      case TransactionStatus.disputed:
+        return 'Disputed';
+      case TransactionStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final daysLeft = tx.daysRemaining;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _statusColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
-      body: txAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.error_outline, size: 56, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text('Error loading transactions', style: const TextStyle(color: AppColors.error)),
-            const SizedBox(height: 8),
-            TextButton(onPressed: () => ref.invalidate(transactionsProvider), child: const Text('Retry')),
-          ]),
-        ),
-        data: (txs) => txs.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.receipt_long_outlined, size: 72, color: AppColors.textSecondary.withOpacity(0.3)),
-                const SizedBox(height: 16),
-                const Text('No transactions yet', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-                const SizedBox(height: 8),
-                const Text('Borrow or lend items to see your history', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-              ]))
-            : ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: txs.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, i) {
-                  final tx = txs[i];
-                  final statusColor = _statusColors[tx.status] ?? AppColors.textSecondary;
-                  final statusIcon = _statusIcons[tx.status] ?? Icons.swap_horiz_rounded;
-                  final daysLeft = tx.dueDate.difference(DateTime.now()).inDays;
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: statusColor.withOpacity(0.25)),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(statusIcon, color: statusColor, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text(tx.itemTitle,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                            maxLines: 1, overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(tx.status.name,
-                              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600)),
-                          ),
-                        ]),
-                        const SizedBox(height: 12),
-                        _row('${tx.isBorrower ? "Lender" : "Borrower"}',
-                          tx.isBorrower ? tx.lenderName : tx.borrowerName,
-                          tx.isBorrower ? Icons.person_outline : Icons.person_outlined),
-                        const SizedBox(height: 6),
-                        _row('Duration', '${tx.borrowedDays} days', Icons.calendar_today_outlined),
-                        const SizedBox(height: 6),
-                        _row('Due Date', _formatDate(tx.dueDate), Icons.event_outlined),
-                        if (tx.status == TransactionStatus.active) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: daysLeft <= 1 ? AppColors.error.withOpacity(0.1) : AppColors.info.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              daysLeft < 0
-                                  ? '${daysLeft.abs()} days overdue!'
-                                  : daysLeft == 0 ? 'Due today!'
-                                  : '$daysLeft days remaining',
-                              style: TextStyle(
-                                color: daysLeft <= 1 ? AppColors.error : AppColors.info,
-                                fontSize: 12, fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                },
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _statusLabel,
+                  style: TextStyle(color: _statusColor, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
+              const Spacer(),
+              if (!isHistory) ...[
+                Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  daysLeft < 0
+                      ? '${daysLeft.abs()} days overdue'
+                      : daysLeft == 0
+                          ? 'Due today'
+                          : '$daysLeft days left',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: daysLeft <= 1 ? AppColors.error : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Due date
+          _infoRow(Icons.event_outlined, 'Due Date', _fmt(tx.dueDate)),
+          const SizedBox(height: 6),
+          if (tx.pickupTime != null)
+            _infoRow(Icons.login_outlined, 'Picked up', _fmt(tx.pickupTime!)),
+          if (tx.returnTime != null)
+            _infoRow(Icons.logout_outlined, 'Returned', _fmt(tx.returnTime!)),
+
+          const SizedBox(height: 12),
+
+          // Actions
+          if (!isHistory) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Borrower actions
+                if (isBorrowing && tx.isBorrowed)
+                  _ActionButton(
+                    label: 'Initiate Return',
+                    icon: Icons.assignment_return_outlined,
+                    color: AppColors.accent,
+                    onTap: () => onInitiateReturn(tx.id),
+                  ),
+                if (isBorrowing && tx.isReturnPending)
+                  _ActionButton(
+                    label: 'Show Return QR',
+                    icon: Icons.qr_code,
+                    color: AppColors.primary,
+                    onTap: () => onGenerateQR(tx.id, 'return'),
+                  ),
+
+                // Lender actions
+                if (!isBorrowing && tx.isAwaitingPickup)
+                  _ActionButton(
+                    label: 'Show Pickup QR',
+                    icon: Icons.qr_code,
+                    color: AppColors.primary,
+                    onTap: () => onGenerateQR(tx.id, 'pickup'),
+                  ),
+                if (!isBorrowing && tx.isReturnPending)
+                  _ActionButton(
+                    label: 'Scan Return QR',
+                    icon: Icons.qr_code_scanner,
+                    color: AppColors.success,
+                    onTap: () => context.push('/qr/scan'),
+                  ),
+
+                // Common actions
+                if (tx.isAwaitingPickup || tx.isBorrowed || tx.isReturnPending)
+                  _ActionButton(
+                    label: 'Upload Photo',
+                    icon: Icons.camera_alt_outlined,
+                    color: AppColors.info,
+                    onTap: () => _showEvidenceTypePicker(context, tx.id),
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _row(String label, String value, IconData icon) => Row(children: [
-    Icon(icon, size: 14, color: AppColors.textSecondary),
-    const SizedBox(width: 6),
-    Text('$label: ', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-    Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-  ]);
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Text('$label: ', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
 
-  String _formatDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
+  void _showEvidenceTypePicker(BuildContext context, String txId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Upload Condition Photo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+                title: const Text('Pickup Condition'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onUploadEvidence(txId, 'pickup');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.accent),
+                title: const Text('Return Condition'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onUploadEvidence(txId, 'return');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+      backgroundColor: color.withOpacity(0.1),
+      side: BorderSide(color: color.withOpacity(0.3)),
+      onPressed: onTap,
+    );
+  }
 }

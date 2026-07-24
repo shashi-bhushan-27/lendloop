@@ -7,7 +7,7 @@ Endpoints:
   GET  /borrow/received              — Received requests (lender view)
   POST /borrow/{id}/approve          — Approve a request
   POST /borrow/{id}/reject           — Reject a request
-  DELETE /borrow/{id}                — Cancel a request
+  DELETE /borrow/{id}                — Cancel a request (borrower only)
 """
 
 from fastapi import APIRouter, Depends, status
@@ -18,7 +18,7 @@ from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.borrow_request import BorrowRequest, RequestStatus
 from app.schemas.borrow_request import BorrowRequestCreate, BorrowRequestReject, BorrowRequestResponse
-from app.services.borrow_service import create_borrow_request, approve_request
+from app.services.borrow_service import create_borrow_request, approve_request, cancel_request
 from app.schemas.transaction import TransactionResponse
 from typing import List
 import uuid
@@ -88,3 +88,12 @@ async def reject(
     req.rejection_reason = data.rejection_reason
     req.responded_at = datetime.now(timezone.utc)
     return {"message": "Request rejected"}
+
+
+@router.delete("/{request_id}")
+async def cancel(
+    request_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await cancel_request(request_id, current_user, db)

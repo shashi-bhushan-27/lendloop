@@ -11,7 +11,6 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    // .value unwraps AsyncValue<UserModel?> → UserModel?
     final user = ref.watch(currentUserProvider).value;
 
     if (user == null) {
@@ -84,6 +83,18 @@ class ProfilePage extends ConsumerWidget {
                         const Divider(height: 1),
                         _InfoTile(icon: Icons.school_outlined, label: 'Department',
                             value: user.department ?? 'Not set'),
+                        const Divider(height: 1),
+                        _InfoTile(
+                          icon: Icons.apartment_outlined,
+                          label: 'Hostel / Block',
+                          value: user.hostelBlock ?? 'Not set',
+                        ),
+                        const Divider(height: 1),
+                        _InfoTile(
+                          icon: Icons.location_on_outlined,
+                          label: 'Preferred Pickup',
+                          value: user.preferredPickupLocation ?? 'Not set',
+                        ),
                         const Divider(height: 1),
                         _InfoTile(
                           icon: Icons.phone_outlined,

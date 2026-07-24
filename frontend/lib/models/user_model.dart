@@ -10,6 +10,8 @@ class UserModel {
   final String? bio;
   final String? department;
   final String? regNumber;
+  final String? hostelBlock;
+  final String? preferredPickupLocation;
   final double trustScore;
   final int totalLends;
   final int totalBorrows;
@@ -28,6 +30,8 @@ class UserModel {
     this.bio,
     this.department,
     this.regNumber,
+    this.hostelBlock,
+    this.preferredPickupLocation,
     required this.trustScore,
     required this.totalLends,
     required this.totalBorrows,
@@ -48,7 +52,9 @@ class UserModel {
       bio: json['bio'] as String?,
       department: json['department'] as String?,
       regNumber: json['reg_number'] as String?,
-      trustScore: (json['trust_score'] as num?)?.toDouble() ?? 50.0,
+      hostelBlock: json['hostel_block'] as String?,
+      preferredPickupLocation: json['preferred_pickup_location'] as String?,
+      trustScore: (json['trust_score'] as num?)?.toDouble() ?? 80.0,
       totalLends: (json['total_lends'] as num?)?.toInt() ?? 0,
       totalBorrows: (json['total_borrows'] as num?)?.toInt() ?? 0,
       role: UserRole.values.firstWhere(
@@ -74,6 +80,8 @@ class UserModel {
     'bio': bio,
     'department': department,
     'reg_number': regNumber,
+    'hostel_block': hostelBlock,
+    'preferred_pickup_location': preferredPickupLocation,
     'trust_score': trustScore,
     'total_lends': totalLends,
     'total_borrows': totalBorrows,
@@ -90,6 +98,8 @@ class UserModel {
     String? avatarUrl,
     String? bio,
     String? department,
+    String? hostelBlock,
+    String? preferredPickupLocation,
     double? trustScore,
   }) {
     return UserModel(
@@ -101,6 +111,8 @@ class UserModel {
       bio: bio ?? this.bio,
       department: department ?? this.department,
       regNumber: regNumber,
+      hostelBlock: hostelBlock ?? this.hostelBlock,
+      preferredPickupLocation: preferredPickupLocation ?? this.preferredPickupLocation,
       trustScore: trustScore ?? this.trustScore,
       totalLends: totalLends,
       totalBorrows: totalBorrows,

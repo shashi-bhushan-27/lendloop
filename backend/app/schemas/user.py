@@ -10,6 +10,8 @@ class UserBase(BaseModel):
     bio: Optional[str] = None
     department: Optional[str] = None
     reg_number: Optional[str] = None
+    hostel_block: Optional[str] = None
+    preferred_pickup_location: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -23,7 +25,9 @@ class UserUpdate(BaseModel):
     department: Optional[str] = None
     phone_number: Optional[str] = None
     avatar_url: Optional[str] = None
-    reg_number: Optional[str] = None   # Allow updating registration number
+    reg_number: Optional[str] = None
+    hostel_block: Optional[str] = None
+    preferred_pickup_location: Optional[str] = None
 
 
 class UserResponse(UserBase):
@@ -33,6 +37,8 @@ class UserResponse(UserBase):
     trust_score: float
     total_lends: int
     total_borrows: int
+    successful_returns: int
+    overdue_count: int
     role: UserRole
     status: UserStatus
     is_email_verified: bool
@@ -52,7 +58,19 @@ class UserPublicResponse(BaseModel):
     total_lends: int
     total_borrows: int
     department: Optional[str] = None
+    hostel_block: Optional[str] = None  # General area only
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserContactResponse(BaseModel):
+    """Contact details revealed only to approved transaction participants."""
+    phone_number: Optional[str] = None
+    phone_verified: bool = False
+    preferred_pickup_location: Optional[str] = None
+    email: EmailStr
 
     class Config:
         from_attributes = True

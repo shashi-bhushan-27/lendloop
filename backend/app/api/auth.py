@@ -59,6 +59,7 @@ async def register_fcm_token(
             device_type=payload.device_type,
         )
         db.add(fcm)
+        await db.flush()
     return {"message": "FCM token registered"}
 
 
@@ -74,38 +75,5 @@ async def remove_fcm_token(
             FCMToken.user_id == current_user.id
         )
     )
+    await db.flush()
     return {"message": "FCM token removed"}
-@router.post("/debug-token", summary="[DEBUG] Echo and verify Firebase token")
-async def debug_token(
-    firebase_token: str = Body(..., embed=True),
-):
-    """Temporary debug endpoint — remove before production."""
-    from app.auth.firebase_auth import get_firebase_app, firebase_auth_module
-    get_firebase_app()
-    try:
-        decoded = firebase_auth_module.verify_id_token(firebase_token, check_revoked=False)
-        return {
-            "status": "valid",
-            "uid": decoded.get("uid"),
-            "email": decoded.get("email"),
-            "token_length": len(firebase_token),
-            "token_first_50": firebase_token[:50],
-        }
-    except Exception as e:
-        import base64, json
-        parts = firebase_token.split(".")
-        payload_info = {}
-        if len(parts) >= 2:
-            try:
-                padding = '=' * (4 - len(parts[1]) % 4)
-                payload_info = json.loads(base64.urlsafe_b64decode(parts[1] + padding))
-            except Exception:
-                payload_info = {"decode_error": "could not decode payload"}
-        return {
-            "status": "invalid",
-            "error_type": type(e).__name__,
-            "error_message": str(e),
-            "token_length": len(firebase_token),
-            "num_parts": len(parts),
-            "payload_decoded": payload_info,
-        }

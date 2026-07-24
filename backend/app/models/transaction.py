@@ -2,7 +2,7 @@
 Transaction Model
 
 Created when a borrow request is approved.
-Lifecycle: active → picked_up → returned / overdue.
+Lifecycle: awaiting_pickup → borrowed → return_pending → completed / overdue.
 """
 
 import uuid
@@ -16,11 +16,12 @@ import enum
 
 
 class TransactionStatus(str, enum.Enum):
-    active = "active"              # Approved, awaiting pickup
-    picked_up = "picked_up"        # QR pickup confirmed
-    returned = "returned"          # QR return confirmed
-    overdue = "overdue"            # Past due date, not returned
-    disputed = "disputed"          # Raised a dispute
+    awaiting_pickup = "awaiting_pickup"   # Approved, awaiting pickup
+    borrowed = "borrowed"                 # QR pickup confirmed, item in use
+    return_pending = "return_pending"     # Borrower initiated return
+    completed = "completed"               # Return QR verified + lender confirmed
+    overdue = "overdue"                   # Past due date, not returned
+    disputed = "disputed"                 # Raised a dispute
     cancelled = "cancelled"
 
 
@@ -50,8 +51,10 @@ class Transaction(Base):
     return_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Status
-    status: Mapped[TransactionStatus] = mapped_column(Enum(TransactionStatus), default=TransactionStatus.active)
+    status: Mapped[TransactionStatus] = mapped_column(Enum(TransactionStatus), default=TransactionStatus.awaiting_pickup)
     is_overdue: Mapped[bool] = mapped_column(Boolean, default=False)
+    overdue_notified: Mapped[bool] = mapped_column(Boolean, default=False)  # Penalty applied exactly once
+    trust_score_updated: Mapped[bool] = mapped_column(Boolean, default=False)  # Ensure score update happens once
 
     # Media (return condition photo)
     return_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -70,6 +73,8 @@ class Transaction(Base):
     lender = relationship("User", back_populates="transactions_as_lender", foreign_keys=[lender_id])
     qr_verifications = relationship("QRVerification", back_populates="transaction")
     reviews = relationship("Review", back_populates="transaction")
+    evidence_photos = relationship("TransactionEvidencePhoto", back_populates="transaction")
+    trust_score_events = relationship("TrustScoreEvent", back_populates="transaction")
 
     __table_args__ = (
         Index("ix_transactions_borrower", "borrower_id"),

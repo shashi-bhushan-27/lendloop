@@ -12,7 +12,6 @@ from app.models.notification import Notification, NotificationType, FCMToken
 from loguru import logger
 from typing import Optional, Dict, Any
 import uuid
-import httpx
 
 
 async def send_notification_to_user(
@@ -39,8 +38,11 @@ async def send_notification_to_user(
     db.add(notification)
     await db.flush()
 
-    # Send FCM push
-    await send_fcm_to_user(user_id, title, body, data or {}, db)
+    # Send FCM push (fire-and-forget, don't let it break the transaction)
+    try:
+        await send_fcm_to_user(user_id, title, body, data or {}, db)
+    except Exception as e:
+        logger.warning(f"FCM send failed for user {user_id}: {e}")
 
     return notification
 

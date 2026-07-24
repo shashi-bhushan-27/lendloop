@@ -24,5 +24,9 @@ class TransactionResponse(BaseModel):
         from_attributes = True
 
 
-class ReturnRequest(BaseModel):
+class ReturnInitiateRequest(BaseModel):
     return_notes: Optional[str] = None
+
+
+class ReturnConfirmRequest(BaseModel):
+    token: str

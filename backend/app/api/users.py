@@ -4,18 +4,24 @@ Users Router
 Endpoints:
   GET  /users/me              — Current user profile
   PUT  /users/me              — Update own profile
-  GET  /users/{user_id}       — Public user profile
+  GET  /users/{user_id}       — Public user profile (restricted visibility)
+  GET  /users/{user_id}/contact — Contact info (transaction participants only)
   GET  /users/{user_id}/trust — Trust score details
   POST /users/me/avatar       — Upload profile avatar
 """
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from app.database.connection import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.user import UserResponse, UserPublicResponse, UserUpdate, TrustScoreResponse
+from app.models.transaction import Transaction, TransactionStatus
+from app.database.connection import get_db
+from app.auth.dependencies import get_current_user
+from app.models.user import User
+from app.models.transaction import Transaction
+from app.schemas.user import UserResponse, UserPublicResponse, UserUpdate, UserContactResponse, TrustScoreResponse
 from app.services.trust_score_service import recalculate_trust_score
 import cloudinary.uploader
 import uuid
@@ -52,6 +58,48 @@ async def get_public_profile(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.get("/{user_id}/contact", response_model=UserContactResponse)
+async def get_contact_info(
+    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns contact details (phone, email, pickup location) only if:
+    - The requester has an active or completed transaction with this user.
+    """
+    # Check for shared transaction
+    tx_result = await db.execute(
+        select(Transaction).where(
+            or_(
+                and_(Transaction.borrower_id == current_user.id, Transaction.lender_id == user_id),
+                and_(Transaction.borrower_id == user_id, Transaction.lender_id == current_user.id),
+            ),
+            Transaction.status.in_([
+                TransactionStatus.awaiting_pickup,
+                TransactionStatus.borrowed,
+                TransactionStatus.return_pending,
+                TransactionStatus.completed,
+            ])
+        )
+    )
+    tx = tx_result.scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=403, detail="Contact details are only available to transaction participants.")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return UserContactResponse(
+        phone_number=user.phone_number,
+        phone_verified=user.phone_verified,
+        preferred_pickup_location=user.preferred_pickup_location,
+        email=user.email,
+    )
 
 
 @router.get("/{user_id}/trust", response_model=TrustScoreResponse)

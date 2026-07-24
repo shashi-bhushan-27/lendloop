@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = 20
 
     # Firebase
-    FIREBASE_CREDENTIALS_PATH: str
+    FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""
     FIREBASE_PROJECT_ID: str
 
     # Cloudinary

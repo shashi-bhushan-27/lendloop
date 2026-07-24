@@ -19,7 +19,14 @@ def get_firebase_app():
     global _firebase_app
     if _firebase_app is None:
         try:
-            cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+            import json
+            if hasattr(settings, "FIREBASE_CREDENTIALS_JSON") and settings.FIREBASE_CREDENTIALS_JSON:
+                cred_dict = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
+                cred = credentials.Certificate(cred_dict)
+            elif settings.FIREBASE_CREDENTIALS_PATH:
+                cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+            else:
+                raise ValueError("Neither FIREBASE_CREDENTIALS_JSON nor FIREBASE_CREDENTIALS_PATH is set.")
             _firebase_app = firebase_admin.initialize_app(cred)
             logger.info("✅ Firebase Admin SDK initialized")
         except Exception as e:

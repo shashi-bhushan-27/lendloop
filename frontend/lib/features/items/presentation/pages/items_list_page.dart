@@ -1,5 +1,6 @@
 /// Items List Page — Browse & Search + My Listings
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,8 +19,8 @@ class ItemsListPage extends ConsumerStatefulWidget {
 class _ItemsListPageState extends ConsumerState<ItemsListPage>
     with SingleTickerProviderStateMixin {
   final _searchCtrl = TextEditingController();
-  ItemCategory? _selectedCategory;
   late TabController _tabs;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -31,7 +32,15 @@ class _ItemsListPageState extends ConsumerState<ItemsListPage>
   void dispose() {
     _searchCtrl.dispose();
     _tabs.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      ref.read(searchQueryProvider.notifier).state = value.trim();
+    });
   }
 
   @override
@@ -66,38 +75,51 @@ class _ItemsListPageState extends ConsumerState<ItemsListPage>
               child: TextField(
                 controller: _searchCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Search items...',
+                  hintText: 'Search by title or description...',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
-                          onPressed: () { _searchCtrl.clear(); setState(() {}); },
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            ref.read(searchQueryProvider.notifier).state = '';
+                            setState(() {});
+                          },
                         )
                       : null,
                 ),
-                onChanged: (_) => setState(() {}),
+                onChanged: (v) {
+                  setState(() {});
+                  _onSearchChanged(v);
+                },
               ),
             ),
-            SizedBox(
-              height: 52,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: [
-                  _CategoryChip(label: 'All', selected: _selectedCategory == null,
-                      onTap: () => setState(() => _selectedCategory = null)),
-                  ...ItemCategory.values.map((cat) => _CategoryChip(
-                    label: cat.name.replaceAll('_', ' ').capitalize(),
-                    selected: _selectedCategory == cat,
-                    onTap: () => setState(() => _selectedCategory = cat),
-                  )),
-                ],
-              ),
+            // Category filter chips
+            Consumer(
+              builder: (context, ref, _) {
+                final selectedCategory = ref.watch(categoryFilterProvider);
+                return SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    children: [
+                      _CategoryChip(
+                        label: 'All',
+                        selected: selectedCategory == null,
+                        onTap: () => ref.read(categoryFilterProvider.notifier).state = null,
+                      ),
+                      ...ItemCategory.values.map((cat) => _CategoryChip(
+                        label: cat.name.replaceAll('_', ' ').capitalize(),
+                        selected: selectedCategory == cat.name,
+                        onTap: () => ref.read(categoryFilterProvider.notifier).state = cat.name,
+                      )),
+                    ],
+                  ),
+                );
+              },
             ),
-            Expanded(child: _BrowseGrid(
-              searchQuery: _searchCtrl.text,
-              selectedCategory: _selectedCategory,
-            )),
+            const Expanded(child: _BrowseGrid()),
           ]),
 
           // --- My Listings Tab ---
@@ -109,46 +131,51 @@ class _ItemsListPageState extends ConsumerState<ItemsListPage>
 }
 
 class _BrowseGrid extends ConsumerWidget {
-  final String searchQuery;
-  final ItemCategory? selectedCategory;
-  const _BrowseGrid({required this.searchQuery, this.selectedCategory});
+  const _BrowseGrid();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final itemsAsync = ref.watch(itemsProvider);
+    final itemsAsync = ref.watch(itemsSearchProvider);
     return itemsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          Text('Could not load items', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => ref.invalidate(itemsSearchProvider),
+            child: const Text('Retry'),
+          ),
+        ]),
+      ),
       data: (items) {
-        var filtered = items;
-        if (selectedCategory != null) {
-          filtered = filtered.where((i) => i.category == selectedCategory).toList();
-        }
-        if (searchQuery.isNotEmpty) {
-          final q = searchQuery.toLowerCase();
-          filtered = filtered.where((i) =>
-              i.title.toLowerCase().contains(q) ||
-              i.description.toLowerCase().contains(q)).toList();
-        }
-        if (filtered.isEmpty) {
+        if (items.isEmpty) {
           return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.search_off, size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
             Text('No items found', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const Text(
+              'Try different keywords or clear the filter',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
           ]));
         }
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(itemsProvider),
+          onRefresh: () async => ref.invalidate(itemsSearchProvider),
           child: GridView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: filtered.length,
+            itemCount: items.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2, childAspectRatio: 0.72,
               crossAxisSpacing: 12, mainAxisSpacing: 12,
             ),
             itemBuilder: (_, i) => ItemCard(
-              item: filtered[i],
-              onTap: () => context.push('/items/${filtered[i].id}'),
+              item: items[i],
+              onTap: () => context.push('/items/${items[i].id}'),
             ),
           ),
         );

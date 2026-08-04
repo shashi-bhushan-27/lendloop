@@ -5,12 +5,17 @@
 /// - refreshListenable so GoRouter re-evaluates redirect on every auth change
 /// - Named routes for type-safe navigation
 /// - Shell route for bottom navigation bar
+/// - Email verification gate: unverified email/password users go to /verify-email
+///   (Google Sign-In emails are pre-verified by Google)
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lendloop/features/auth/presentation/pages/login_page.dart';
 import 'package:lendloop/features/auth/presentation/pages/register_page.dart';
+import 'package:lendloop/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:lendloop/features/auth/presentation/pages/email_verification_page.dart';
 import 'package:lendloop/features/home/presentation/pages/home_page.dart';
 import 'package:lendloop/features/items/presentation/pages/items_list_page.dart';
 import 'package:lendloop/features/items/presentation/pages/item_detail_page.dart';
@@ -47,19 +52,65 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (userState.isLoading) return null;
 
       final isAuthenticated = userState.valueOrNull != null;
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+      final location = state.matchedLocation;
 
-      if (!isAuthenticated && !isAuthRoute) return '/login';
+      final isAuthRoute = location == '/login' ||
+          location == '/register' ||
+          location == '/forgot-password';
+      final isVerifyRoute = location == '/verify-email';
+
+      // Not authenticated → go to login (but allow auth routes)
+      if (!isAuthenticated && !isAuthRoute && !isVerifyRoute) return '/login';
+
+      // Authenticated → don't show auth pages
       if (isAuthenticated && isAuthRoute) return '/home';
+
+      // Email verification gate:
+      // If the Firebase user exists but email is NOT verified and they are NOT
+      // a Google/OAuth user, redirect them to the verify-email screen.
+      if (isAuthenticated && !isVerifyRoute) {
+        final firebaseUser = FirebaseAuth.instance.currentUser;
+        if (firebaseUser != null && !firebaseUser.emailVerified) {
+          // Check if user signed in via Google (provider ID = 'google.com')
+          // Google accounts are always verified — skip the gate.
+          final isGoogleUser = firebaseUser.providerData
+              .any((p) => p.providerId == 'google.com');
+          if (!isGoogleUser) {
+            return '/verify-email';
+          }
+        }
+      }
+
+      // Already on verify-email but now verified → go home
+      if (isAuthenticated && isVerifyRoute) {
+        final firebaseUser = FirebaseAuth.instance.currentUser;
+        final isVerified = firebaseUser?.emailVerified ?? false;
+        final isGoogleUser = firebaseUser?.providerData
+                .any((p) => p.providerId == 'google.com') ??
+            false;
+        if (isVerified || isGoogleUser) return '/home';
+      }
+
       return null;
     },
     routes: [
-      // Auth Routes
-      GoRoute(path: '/login',    name: 'login',    builder: (_, __) => const LoginPage()),
-      GoRoute(path: '/register', name: 'register', builder: (_, __) => const RegisterPage()),
+      // ── Auth Routes ─────────────────────────────────────
+      GoRoute(
+          path: '/login', name: 'login', builder: (_, __) => const LoginPage()),
+      GoRoute(
+          path: '/register',
+          name: 'register',
+          builder: (_, __) => const RegisterPage()),
+      GoRoute(
+          path: '/forgot-password',
+          name: 'forgot-password',
+          builder: (_, __) => const ForgotPasswordPage()),
+      GoRoute(
+          path: '/verify-email',
+          name: 'verify-email',
+          builder: (_, __) => const EmailVerificationPage()),
 
-      // Full-screen pages (no bottom nav) — must be listed before ShellRoute
+      // ── Full-screen pages (no bottom nav) ───────────────
       GoRoute(
         path: '/items/new',
         name: 'create-item',
@@ -68,20 +119,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/items/:id',
         name: 'item-detail',
-        builder: (_, state) => ItemDetailPage(itemId: state.pathParameters['id']!),
+        builder: (_, state) =>
+            ItemDetailPage(itemId: state.pathParameters['id']!),
       ),
-      GoRoute(path: '/qr/scan', name: 'qr-scanner', builder: (_, __) => const QRScannerPage()),
+      GoRoute(
+          path: '/qr/scan',
+          name: 'qr-scanner',
+          builder: (_, __) => const QRScannerPage()),
 
-      // Main Shell (bottom nav bar)
+      // ── Main Shell (bottom nav bar) ─────────────────────
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/home',          name: 'home',          builder: (_, __) => const HomePage()),
-          GoRoute(path: '/items',         name: 'items',         builder: (_, __) => const ItemsListPage()),
-          GoRoute(path: '/borrow',        name: 'borrow',        builder: (_, __) => const BorrowRequestsPage()),
-          GoRoute(path: '/transactions',  name: 'transactions',  builder: (_, __) => const TransactionsPage()),
-          GoRoute(path: '/profile',       name: 'profile',       builder: (_, __) => const ProfilePage()),
-          GoRoute(path: '/notifications', name: 'notifications', builder: (_, __) => const NotificationsPage()),
+          GoRoute(
+              path: '/home',
+              name: 'home',
+              builder: (_, __) => const HomePage()),
+          GoRoute(
+              path: '/items',
+              name: 'items',
+              builder: (_, __) => const ItemsListPage()),
+          GoRoute(
+              path: '/borrow',
+              name: 'borrow',
+              builder: (_, __) => const BorrowRequestsPage()),
+          GoRoute(
+              path: '/transactions',
+              name: 'transactions',
+              builder: (_, __) => const TransactionsPage()),
+          GoRoute(
+              path: '/profile',
+              name: 'profile',
+              builder: (_, __) => const ProfilePage()),
+          GoRoute(
+              path: '/notifications',
+              name: 'notifications',
+              builder: (_, __) => const NotificationsPage()),
         ],
       ),
     ],

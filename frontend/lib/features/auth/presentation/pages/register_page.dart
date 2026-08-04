@@ -46,9 +46,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     setState(() => _isLoading = false);
     if (!mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failure.message), backgroundColor: AppColors.error),
-      ),
+      (failure) {
+        final isAlreadyExists = failure.message.toLowerCase().contains('already exists');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: isAlreadyExists
+                ? SnackBarAction(
+                    label: 'Log In',
+                    textColor: Colors.white,
+                    onPressed: () => context.go('/login'),
+                  )
+                : null,
+            duration: Duration(seconds: isAlreadyExists ? 6 : 4),
+          ),
+        );
+      },
       (data) {
         final userModel = UserModel.fromJson(data['user'] as Map<String, dynamic>);
         ref.read(currentUserProvider.notifier).setUser(userModel);

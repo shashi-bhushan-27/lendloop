@@ -20,7 +20,11 @@ void main() async {
   await Firebase.initializeApp();
 
   // Initialize FCM
-  await NotificationService.initialize();
+  try {
+    await NotificationService.initialize();
+  } catch (e) {
+    debugPrint('FCM Initialization error: $e');
+  }
 
   runApp(
     const ProviderScope(

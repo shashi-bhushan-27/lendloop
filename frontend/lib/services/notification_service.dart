@@ -53,10 +53,14 @@ class NotificationService {
   }
 
   static Future<void> _refreshFCMToken() async {
-    final token = await _fcm.getToken();
-    if (token != null) {
-      await _storage.write(key: AppConstants.fcmTokenKey, value: token);
-      await _registerTokenWithBackend(token);
+    try {
+      final token = await _fcm.getToken();
+      if (token != null) {
+        await _storage.write(key: AppConstants.fcmTokenKey, value: token);
+        await _registerTokenWithBackend(token);
+      }
+    } catch (e) {
+      print('FCM Token error (non-fatal): $e');
     }
   }
 

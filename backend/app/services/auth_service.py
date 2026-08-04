@@ -8,6 +8,7 @@ JWT issuance, and user record creation/lookup.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from loguru import logger
 from app.models.user import User, UserStatus
@@ -73,6 +74,25 @@ async def register_or_login_user(
             await db.flush()
             logger.info(f"Existing user logged in: {email}")
 
+    except IntegrityError as e:
+        await db.rollback()
+        err_str = str(e).lower()
+        if "email" in err_str or "firebase_uid" in err_str:
+            # User already exists — look them up and log them in
+            logger.warning(f"IntegrityError on insert for {email} — fetching existing user")
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An account already exists with this email. Please log in."
+                )
+        else:
+            logger.error(f"DB IntegrityError: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database integrity error."
+            )
     except Exception as e:
         logger.error(f"DB error during user creation/lookup: {type(e).__name__}: {e}")
         raise HTTPException(

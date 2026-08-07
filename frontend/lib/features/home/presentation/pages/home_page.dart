@@ -18,104 +18,108 @@ class HomePage extends ConsumerWidget {
     final itemsAsync = ref.watch(availableItemsProvider);
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 180,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(availableItemsProvider),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 180,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hello, ${user?.fullName.split(' ').first ?? 'Student'}! 👋',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text('What would you like to borrow today?',
+                              style: TextStyle(fontSize: 13, color: Colors.white70)),
+                        ],
+                      ),
+                      if (user != null)
+                        TrustScoreBadge(score: user.trustScore, size: 56),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text(
-                          'Hello, ${user?.fullName.split(' ').first ?? 'Student'}! 👋',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+                        _QuickAction(
+                          icon: Icons.add_box_outlined, label: 'List Item',
+                          color: AppColors.primary,
+                          onTap: () => context.push('/items/new'),
                         ),
-                        const SizedBox(height: 4),
-                        const Text('What would you like to borrow today?',
-                            style: TextStyle(fontSize: 13, color: Colors.white70)),
+                        const SizedBox(width: 12),
+                        _QuickAction(
+                          icon: Icons.qr_code_scanner_rounded, label: 'Scan QR',
+                          color: AppColors.accent,
+                          onTap: () => context.push('/qr/scan'),
+                        ),
+                        const SizedBox(width: 12),
+                        _QuickAction(
+                          icon: Icons.history_rounded, label: 'History',
+                          color: AppColors.success,
+                          onTap: () => context.push('/transactions'),
+                        ),
                       ],
                     ),
-                    if (user != null)
-                      TrustScoreBadge(score: user.trustScore, size: 56),
+                    const SizedBox(height: 24),
+                    Text('Available Items', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 4),
+                    Text('Browse items your peers are lending',
+                        style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _QuickAction(
-                        icon: Icons.add_box_outlined, label: 'List Item',
-                        color: AppColors.primary,
-                        onTap: () => context.push('/items/new'),
-                      ),
-                      const SizedBox(width: 12),
-                      _QuickAction(
-                        icon: Icons.qr_code_scanner_rounded, label: 'Scan QR',
-                        color: AppColors.accent,
-                        onTap: () => context.push('/qr/scan'),
-                      ),
-                      const SizedBox(width: 12),
-                      _QuickAction(
-                        icon: Icons.history_rounded, label: 'History',
-                        color: AppColors.success,
-                        onTap: () => context.push('/transactions'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Available Items', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  Text('Browse items your peers are lending',
-                      style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                ],
+            itemsAsync.when(
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ),
-          ),
-          itemsAsync.when(
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(child: Text('Error loading items: $e')),
-            ),
-            data: (items) => items.isEmpty
-                ? const SliverFillRemaining(
-                    child: Center(child: Text('No items available yet')),
-                  )
-                : SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => ItemCard(
-                          item: items[index],
-                          onTap: () => context.push('/items/${items[index].id}'),
+              error: (e, _) => SliverFillRemaining(
+                child: Center(child: Text('Error loading items: $e')),
+              ),
+              data: (items) => items.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text('No items available yet')),
+                    )
+                  : SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      sliver: SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => ItemCard(
+                            item: items[index],
+                            onTap: () => context.push('/items/${items[index].id}'),
+                          ),
+                          childCount: items.length,
                         ),
-                        childCount: items.length,
-                      ),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, childAspectRatio: 0.72,
-                        crossAxisSpacing: 12, mainAxisSpacing: 12,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2, childAspectRatio: 0.72,
+                          crossAxisSpacing: 12, mainAxisSpacing: 12,
+                        ),
                       ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

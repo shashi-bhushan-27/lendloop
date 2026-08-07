@@ -85,9 +85,23 @@ class ItemCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Text(
-                        '${item.maxBorrowDays}d max',
-                        style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textTertiary),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${item.maxBorrowDays}d max',
+                            style: theme.textTheme.labelSmall?.copyWith(color: AppColors.textTertiary),
+                          ),
+                          if (item.status == ItemStatus.available && item.expiresAt != null)
+                            Text(
+                              'Exp: ${item.expiresAt!.difference(DateTime.now()).inDays}d',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.warning,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),

@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW: int = 60
 
+    # Postmark (Email OTP)
+    POSTMARK_SERVER_TOKEN: str = ""
+    POSTMARK_FROM_EMAIL: str = "shashibhushan.vijay2022@vitstudent.ac.in"
+    OTP_EXPIRE_MINUTES: int = 10
+    OTP_MAX_ATTEMPTS: int = 5
+    OTP_RATE_LIMIT_COUNT: int = 3
+    OTP_RATE_LIMIT_WINDOW_MINUTES: int = 15
+
     class Config:
         env_file = ".env"
         case_sensitive = True

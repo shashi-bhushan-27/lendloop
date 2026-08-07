@@ -33,7 +33,8 @@ import 'package:lendloop/widgets/app_shell.dart';
 /// re-evaluates its redirect function on every auth state transition.
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier(Ref ref) {
-    ref.listen<AsyncValue>(currentUserProvider, (_, __) {
+    ref.listen<AsyncValue>(currentUserProvider, (previous, next) {
+      debugPrint('RouterNotifier: currentUserProvider changed from $previous to $next');
       notifyListeners();
     });
   }
@@ -47,9 +48,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) {
-      // While loading (e.g. app startup checking stored token), don't redirect.
       final userState = ref.read(currentUserProvider);
-      if (userState.isLoading) return null;
+      debugPrint('GoRouter redirect: location = ${state.matchedLocation}, userState = $userState');
+      
+      // While loading (e.g. app startup checking stored token), don't redirect.
+      if (userState.isLoading) {
+        debugPrint('GoRouter redirect: userState is loading, returning null');
+        return null;
+      }
 
       final isAuthenticated = userState.valueOrNull != null;
       final location = state.matchedLocation;
@@ -59,11 +65,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/forgot-password';
       final isVerifyRoute = location == '/verify-email';
 
+      debugPrint('GoRouter redirect check: isAuthenticated = $isAuthenticated, isAuthRoute = $isAuthRoute, location = $location');
+
       // Not authenticated → go to login (but allow auth routes)
-      if (!isAuthenticated && !isAuthRoute && !isVerifyRoute) return '/login';
+      if (!isAuthenticated && !isAuthRoute && !isVerifyRoute) {
+        debugPrint('GoRouter redirect: user not authenticated and not on auth/verify route. Redirecting to /login');
+        return '/login';
+      }
 
       // Authenticated → don't show auth pages
-      if (isAuthenticated && isAuthRoute) return '/home';
+      if (isAuthenticated && isAuthRoute) {
+        debugPrint('GoRouter redirect: user is authenticated and on auth route. Redirecting to /home');
+        return '/home';
+      }
 
       // Email verification gate:
       // If the Firebase user exists but email is NOT verified and they are NOT

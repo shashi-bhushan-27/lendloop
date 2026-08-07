@@ -43,6 +43,8 @@ async def upload_item_image(file: UploadFile, item_id: str) -> str:
         )
 
 
+from datetime import datetime, timedelta, timezone
+
 async def create_item(
     item_data: ItemCreate,
     owner: User,
@@ -53,11 +55,16 @@ async def create_item(
         owner_id=owner.id,
         **item_data.model_dump()
     )
+    # Set expiration to 3 days from now
+    item.expires_at = datetime.now(timezone.utc) + timedelta(days=3)
+    
     db.add(item)
     await db.flush()
     await db.refresh(item)
     return item
 
+
+from sqlalchemy import update, or_, func
 
 async def get_available_items(
     db: AsyncSession,
@@ -67,6 +74,23 @@ async def get_available_items(
     page_size: int = 20,
 ) -> tuple[list[Item], int]:
     """Get paginated list of available items with optional search/filter."""
+    # Lazy Delist: Auto-delist items that have expired
+    now_utc = datetime.now(timezone.utc)
+    update_query = (
+        update(Item)
+        .where(
+            Item.status == ItemStatus.available,
+            Item.is_active == True,
+            Item.expires_at != None,
+            Item.expires_at < now_utc
+        )
+        .values(is_active=False)
+    )
+    await db.execute(update_query)
+    # We do not strictly need to commit here, the session will commit at the end of the request,
+    # but we must flush so the select query doesn't read the old data.
+    await db.flush()
+
     query = select(Item).where(Item.status == ItemStatus.available, Item.is_active == True)
 
     if search:

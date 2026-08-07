@@ -6,9 +6,12 @@ Endpoints:
   POST /api/v1/auth/refresh     — Refresh JWT
   POST /api/v1/auth/logout      — Revoke FCM token
   POST /api/v1/auth/fcm-token   — Register FCM device token
+  POST /api/v1/auth/send-otp    — Send 6-digit OTP via Postmark
+  POST /api/v1/auth/verify-otp  — Verify OTP and mark email verified
 """
 
 from fastapi import APIRouter, Depends, Body
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.connection import get_db
 from app.services.auth_service import register_or_login_user
@@ -20,6 +23,16 @@ from app.models.user import User
 from sqlalchemy import select, delete
 
 router = APIRouter()
+
+
+# ── Schemas for OTP endpoints ─────────────────────────────────────────────────
+
+class OTPRequest(BaseModel):
+    email: EmailStr
+
+class OTPVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str
 
 
 @router.post("/login", summary="Login or Register with Firebase")
@@ -77,3 +90,51 @@ async def remove_fcm_token(
     )
     await db.flush()
     return {"message": "FCM token removed"}
+
+
+# ── OTP Endpoints (isolated — failures here don't affect login) ───────────────
+
+@router.post("/send-otp", summary="Send OTP verification code")
+async def send_otp(
+    payload: OTPRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send a 6-digit OTP to the user's email via Postmark.
+    Validates VIT domain before sending.
+    """
+    from app.auth.firebase_auth import validate_email_domain
+    from app.services.otp_service import create_and_send_otp
+
+    validate_email_domain(payload.email)
+    return await create_and_send_otp(db, payload.email)
+
+
+@router.post("/verify-otp", summary="Verify OTP code")
+async def verify_otp_endpoint(
+    payload: OTPVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Verify a 6-digit OTP. On success, marks user email as verified
+    and returns JWT tokens.
+    """
+    from app.services.otp_service import verify_otp
+    from app.auth.jwt_handler import create_access_token, create_refresh_token
+
+    user = await verify_otp(db, payload.email, payload.otp)
+    if not user:
+        return {"message": "Email verified. Please log in."}
+
+    # Issue JWT tokens for the verified user
+    token_data = {"sub": str(user.id), "email": user.email, "role": user.role.value}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    return {
+        "message": "Email verified successfully!",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+

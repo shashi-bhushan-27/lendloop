@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.database.connection import engine, Base
 from app.api import auth, users, items, borrow_requests, transactions, reviews, notifications, qr
 from app.middleware.logging_middleware import LoggingMiddleware
+import app.models.email_otp  # noqa: F401 — register OTP model with SQLAlchemy
 
 
 @asynccontextmanager

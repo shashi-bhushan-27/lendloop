@@ -48,8 +48,14 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }
 
   Future<void> signOut() async {
-    await _authService.signOut();
-    state = const AsyncValue.data(null);
+    try {
+      await _authService.signOut();
+    } catch (e) {
+      // Log the error but still proceed to clear user state
+      print('Error during signOut: $e');
+    } finally {
+      state = const AsyncValue.data(null);
+    }
   }
 }
 

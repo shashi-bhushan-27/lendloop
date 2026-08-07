@@ -119,8 +119,7 @@ class ProfilePage extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () async {
-                        await ref.read(authServiceProvider).signOut();
-                        if (context.mounted) context.go('/login');
+                        await ref.read(currentUserProvider.notifier).signOut();
                       },
                     ),
                   ),

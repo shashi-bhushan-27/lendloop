@@ -122,6 +122,7 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
       }
       ref.invalidate(itemsProvider);
       ref.invalidate(myItemsProvider);
+      ref.invalidate(availableItemsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

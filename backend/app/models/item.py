@@ -76,6 +76,7 @@ class Item(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     owner = relationship("User", back_populates="items", foreign_keys=[owner_id])

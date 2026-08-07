@@ -113,8 +113,7 @@ class AuthService {
         password: password,
       );
       await credential.user!.updateDisplayName(fullName);
-      // Send email verification immediately after creation
-      await credential.user!.sendEmailVerification();
+      // OTP verification is handled separately via Postmark (not Firebase links)
 
       return await _exchangeFirebaseToken(
         credential.user!,
@@ -236,6 +235,70 @@ class AuthService {
       return _firebaseAuth.currentUser?.emailVerified ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // OTP Verification (Postmark-based)
+  // ─────────────────────────────────────────
+
+  /// Request a 6-digit OTP to be sent to the user's email via Postmark.
+  Future<Either<Failure, void>> sendOtp(String email) async {
+    try {
+      await _api.post('/auth/send-otp', data: {'email': email});
+      return const Right(null);
+    } on DioException catch (e) {
+      final detail = e.response?.data?['detail'] as String?;
+      if (e.response?.statusCode == 429) {
+        return Left(AuthFailure(
+          detail ?? 'Too many requests. Please wait before trying again.',
+        ));
+      }
+      return Left(ServerFailure(
+        detail ?? 'Failed to send verification code. Please try again.',
+      ));
+    } catch (e) {
+      return Left(ServerFailure('Failed to send verification code.'));
+    }
+  }
+
+  /// Verify a 6-digit OTP code. Returns JWT tokens on success.
+  Future<Either<Failure, Map<String, dynamic>>> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await _api.post('/auth/verify-otp', data: {
+        'email': email,
+        'otp': otp,
+      });
+      final data = response.data as Map<String, dynamic>;
+
+      // Store JWT tokens if returned
+      if (data.containsKey('access_token')) {
+        await _storage.write(
+          key: AppConstants.accessTokenKey,
+          value: data['access_token'],
+        );
+        await _storage.write(
+          key: AppConstants.refreshTokenKey,
+          value: data['refresh_token'],
+        );
+      }
+
+      return Right(data);
+    } on DioException catch (e) {
+      final detail = e.response?.data?['detail'] as String?;
+      if (e.response?.statusCode == 429) {
+        return Left(AuthFailure(
+          detail ?? 'Too many failed attempts. Request a new code.',
+        ));
+      }
+      return Left(AuthFailure(
+        detail ?? 'Verification failed. Please check the code.',
+      ));
+    } catch (e) {
+      return Left(ServerFailure('Verification failed. Please try again.'));
     }
   }
 

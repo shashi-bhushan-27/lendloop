@@ -71,6 +71,8 @@ async def get_item(
     return item
 
 
+from datetime import datetime, timedelta, timezone
+
 @router.put("/{item_id}", response_model=ItemResponse)
 async def update_item(
     item_id: uuid.UUID,
@@ -84,6 +86,10 @@ async def update_item(
         raise HTTPException(status_code=404, detail="Item not found or unauthorized.")
     for field, value in update_data.model_dump(exclude_none=True).items():
         setattr(item, field, value)
+        
+    if update_data.is_active is True:
+        item.expires_at = datetime.now(timezone.utc) + timedelta(days=3)
+        
     await db.flush()
     return item
 

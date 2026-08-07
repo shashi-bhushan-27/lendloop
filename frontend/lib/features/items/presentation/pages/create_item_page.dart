@@ -158,6 +158,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
 
       ref.invalidate(itemsProvider);
       ref.invalidate(myItemsProvider);
+      ref.invalidate(availableItemsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Item listed successfully!'), backgroundColor: AppColors.success),

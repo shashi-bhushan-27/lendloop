@@ -79,9 +79,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/home';
       }
 
-      // Email verification gate:
-      // If the Firebase user exists but email is NOT verified and they are NOT
-      // a Google/OAuth user, redirect them to the verify-email screen.
+      // Email verification gate (TEMPORARILY DISABLED):
+      /*
       if (isAuthenticated && !isVerifyRoute) {
         final firebaseUser = FirebaseAuth.instance.currentUser;
         if (firebaseUser != null && !firebaseUser.emailVerified) {
@@ -104,6 +103,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             false;
         if (isVerified || isGoogleUser) return '/home';
       }
+      */
 
       return null;
     },

@@ -35,9 +35,14 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await _storage.read(key: AppConstants.accessTokenKey);
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
+          try {
+            final token = await _storage.read(key: AppConstants.accessTokenKey);
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (e) {
+            // If keystore gets corrupted (BAD_DECRYPT), clear storage
+            await _storage.deleteAll();
           }
           handler.next(options);
         },
@@ -47,8 +52,10 @@ class ApiClient {
             final refreshed = await _tryRefreshToken();
             if (refreshed) {
               // Retry original request
-              final token = await _storage.read(key: AppConstants.accessTokenKey);
-              e.requestOptions.headers['Authorization'] = 'Bearer $token';
+              try {
+                final token = await _storage.read(key: AppConstants.accessTokenKey);
+                e.requestOptions.headers['Authorization'] = 'Bearer $token';
+              } catch (_) {}
               final response = await _dio.fetch(e.requestOptions);
               return handler.resolve(response);
             }
@@ -61,7 +68,12 @@ class ApiClient {
 
   Future<bool> _tryRefreshToken() async {
     try {
-      final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+      String? refreshToken;
+      try {
+        refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+      } catch (e) {
+        await _storage.deleteAll();
+      }
       if (refreshToken == null) return false;
 
       final response = await _dio.post(

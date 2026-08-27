@@ -48,7 +48,7 @@ class NotificationService {
     // Listen for token refresh
     _fcm.onTokenRefresh.listen((newToken) async {
       await _storage.write(key: AppConstants.fcmTokenKey, value: newToken);
-      await _registerTokenWithBackend(newToken);
+      _registerTokenWithBackend(newToken);
     });
   }
 
@@ -57,7 +57,8 @@ class NotificationService {
       final token = await _fcm.getToken();
       if (token != null) {
         await _storage.write(key: AppConstants.fcmTokenKey, value: token);
-        await _registerTokenWithBackend(token);
+        // Do not await to prevent blocking the splash screen if backend is sleeping
+        _registerTokenWithBackend(token);
       }
     } catch (e) {
       print('FCM Token error (non-fatal): $e');

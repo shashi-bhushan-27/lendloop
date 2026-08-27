@@ -20,7 +20,6 @@ class ItemModel {
   final int viewCount;
   final int borrowCount;
   final DateTime createdAt;
-  final DateTime? expiresAt;
 
   const ItemModel({
     required this.id,
@@ -40,7 +39,6 @@ class ItemModel {
     required this.viewCount,
     required this.borrowCount,
     required this.createdAt,
-    this.expiresAt,
   });
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
@@ -71,7 +69,6 @@ class ItemModel {
       viewCount: (json['view_count'] as num?)?.toInt() ?? 0,
       borrowCount: (json['borrow_count'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
-      expiresAt: json['expires_at'] != null ? DateTime.tryParse(json['expires_at'] as String) : null,
     );
   }
 
@@ -93,7 +90,6 @@ class ItemModel {
     'view_count': viewCount,
     'borrow_count': borrowCount,
     'created_at': createdAt.toIso8601String(),
-    'expires_at': expiresAt?.toIso8601String(),
   };
 
   bool get isAvailable => status == ItemStatus.available && isActive;

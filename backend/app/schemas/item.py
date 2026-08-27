@@ -44,7 +44,6 @@ class ItemResponse(BaseModel):
     view_count: int
     borrow_count: int
     created_at: datetime
-    expires_at: Optional[datetime]
 
     class Config:
         from_attributes = True

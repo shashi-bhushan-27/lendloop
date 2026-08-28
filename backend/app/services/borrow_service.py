@@ -56,16 +56,16 @@ async def create_borrow_request(
         )
 
     # Validate borrow duration doesn't exceed item's max
+    if data.proposed_end_date < data.proposed_start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date must be after start date."
+        )
     requested_days = (data.proposed_end_date - data.proposed_start_date).days + 1
     if requested_days > item.max_borrow_days:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Borrow period exceeds item's maximum of {item.max_borrow_days} days."
-        )
-    if data.proposed_end_date < data.proposed_start_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="End date must be after start date."
         )
 
     request = BorrowRequest(

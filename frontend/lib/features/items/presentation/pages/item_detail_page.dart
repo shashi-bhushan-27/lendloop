@@ -38,7 +38,15 @@ class _ItemDetailBody extends ConsumerStatefulWidget {
 
 class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
   bool _isRequesting = false;
-  int _borrowDays = 7;
+  late int _borrowDays;
+
+  @override
+  void initState() {
+    super.initState();
+    _borrowDays = widget.item.maxBorrowDays >= 1
+        ? widget.item.maxBorrowDays.clamp(1, 7)
+        : 1;
+  }
 
   bool get _isOwner => widget.currentUserId == widget.item.ownerId;
 

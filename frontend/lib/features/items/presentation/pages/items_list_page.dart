@@ -5,12 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/core/constants/category_meta.dart';
 import 'package:lendloop/providers/items_provider.dart';
 import 'package:lendloop/widgets/item_card.dart';
 import 'package:lendloop/models/item_model.dart';
 
 class ItemsListPage extends ConsumerStatefulWidget {
-  const ItemsListPage({super.key});
+  /// 0 = Browse tab (default), 1 = My Listings tab — lets other pages
+  /// (e.g. the home page's "See all" links) deep-link into either tab.
+  final int initialTab;
+
+  const ItemsListPage({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<ItemsListPage> createState() => _ItemsListPageState();
@@ -25,7 +30,11 @@ class _ItemsListPageState extends ConsumerState<ItemsListPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 1),
+    );
   }
 
   @override
@@ -289,23 +298,13 @@ class _MyListingsTab extends ConsumerWidget {
   }
 
   Widget _categoryBox(ItemModel item) {
-    const icons = {
-      ItemCategory.books: Icons.menu_book_rounded,
-      ItemCategory.electronics: Icons.devices_rounded,
-      ItemCategory.stationery: Icons.edit_rounded,
-      ItemCategory.equipment: Icons.handyman_rounded,
-      ItemCategory.clothing: Icons.checkroom_rounded,
-      ItemCategory.sports: Icons.sports_soccer_rounded,
-      ItemCategory.tools: Icons.build_rounded,
-      ItemCategory.other: Icons.category_rounded,
-    };
     return Container(
       width: 64, height: 64,
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icons[item.category] ?? Icons.category_rounded, color: Colors.white, size: 28),
+      child: Icon(kCategoryMeta[item.category]?.icon ?? Icons.category_rounded, color: Colors.white, size: 28),
     );
   }
 }

@@ -23,6 +23,13 @@ class ProfilePage extends ConsumerWidget {
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                tooltip: 'Edit Profile',
+                onPressed: () => context.push('/profile/edit'),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(gradient: AppColors.accentGradient),
@@ -54,6 +61,20 @@ class ProfilePage extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit Profile'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () => context.push('/profile/edit'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // Trust Score Card
                   Card(
                     child: Padding(

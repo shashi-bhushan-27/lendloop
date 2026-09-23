@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 
 /// LendLoop Color Palette
-/// A modern, trustworthy color system built around a teal-violet gradient.
-
+///
+/// Green (Borrow) + Amber-Orange (Lend): a deliberate two-color brand pair
+/// for a two-sided marketplace, chosen to sit clearly outside the blue/violet
+/// family. Green reads as trustworthy/sustainable (receiving an item, low
+/// cost to the borrower), orange reads as warm/generous (giving one away) —
+/// a classic, high-contrast complementary pairing that keeps the Borrow/Lend
+/// tabs visually distinct at a glance. Kept clear of the existing semantic
+/// colors below (success/warning/error/info), which are left untouched since
+/// they carry specific status meaning across the app (transaction states,
+/// item status) — success in particular uses a more teal-leaning emerald so
+/// it doesn't get lost against the primary green.
 class AppColors {
   AppColors._();
 
-  // Primary — Teal
-  static const Color primary = Color(0xFF0D9488);       // teal-600
-  static const Color primaryLight = Color(0xFF14B8A6);  // teal-500
-  static const Color primaryDark = Color(0xFF0F766E);   // teal-700
+  // Primary — Green ("Borrow")
+  static const Color primary = Color(0xFF16A34A);       // green-600
+  static const Color primaryLight = Color(0xFF22C55E);  // green-500
+  static const Color primaryDark = Color(0xFF15803D);   // green-700
 
-  // Accent — Violet
-  static const Color accent = Color(0xFF7C3AED);        // violet-600
-  static const Color accentLight = Color(0xFF8B5CF6);   // violet-500
+  // Accent — Amber-Orange ("Lend")
+  static const Color accent = Color(0xFFF97316);        // orange-500
+  static const Color accentLight = Color(0xFFFB923C);   // orange-400
+  static const Color accentDark = Color(0xFFEA580C);    // orange-600
+
+  /// Semantic aliases used on the home page's Borrow/Lend split — same
+  /// values as [primary]/[accent], named for readability at call sites.
+  static const Color borrowColor = primary;
+  static const Color lendColor = accent;
 
   // Background
   static const Color background = Color(0xFFF8FAFC);    // slate-50
@@ -56,13 +71,13 @@ class AppColors {
   );
 
   static const LinearGradient cardGradient = LinearGradient(
-    colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+    colors: [primary, primaryDark],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [accent, Color(0xFF6D28D9)],
+    colors: [accent, accentDark],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

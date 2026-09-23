@@ -24,9 +24,11 @@ import 'package:lendloop/features/borrow/presentation/pages/borrow_requests_page
 import 'package:lendloop/features/transactions/presentation/pages/transactions_page.dart';
 import 'package:lendloop/features/qr/presentation/pages/qr_scanner_page.dart';
 import 'package:lendloop/features/profile/presentation/pages/profile_page.dart';
+import 'package:lendloop/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:lendloop/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:lendloop/providers/auth_provider.dart';
 import 'package:lendloop/widgets/app_shell.dart';
+import 'package:lendloop/models/item_model.dart';
 
 /// A ChangeNotifier that fires whenever [currentUserProvider] state changes.
 /// This is used as [GoRouter.refreshListenable] so the router
@@ -128,7 +130,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/items/new',
         name: 'create-item',
-        builder: (_, __) => const CreateItemPage(),
+        builder: (_, state) {
+          final categoryParam = state.uri.queryParameters['category'];
+          ItemCategory? initialCategory;
+          for (final c in ItemCategory.values) {
+            if (c.name == categoryParam) { initialCategory = c; break; }
+          }
+          return CreateItemPage(initialCategory: initialCategory);
+        },
       ),
       GoRoute(
         path: '/items/:id',
@@ -140,6 +149,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/qr/scan',
           name: 'qr-scanner',
           builder: (_, __) => const QRScannerPage()),
+      GoRoute(
+          path: '/profile/edit',
+          name: 'edit-profile',
+          builder: (_, __) => const EditProfilePage()),
 
       // ── Main Shell (bottom nav bar) ─────────────────────
       ShellRoute(
@@ -152,7 +165,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: '/items',
               name: 'items',
-              builder: (_, __) => const ItemsListPage()),
+              builder: (_, state) {
+                final tabParam = state.uri.queryParameters['tab'];
+                return ItemsListPage(initialTab: tabParam == '1' ? 1 : 0);
+              }),
           GoRoute(
               path: '/borrow',
               name: 'borrow',

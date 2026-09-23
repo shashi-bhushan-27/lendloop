@@ -5,12 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/core/constants/category_meta.dart';
 import 'package:lendloop/models/item_model.dart';
 import 'package:lendloop/services/api_client.dart';
 import 'package:lendloop/providers/items_provider.dart';
 
 class CreateItemPage extends ConsumerStatefulWidget {
-  const CreateItemPage({super.key});
+  /// Pre-selects the category dropdown — used by the home page's Lending
+  /// category shortcuts to jump straight into a prefilled listing form.
+  final ItemCategory? initialCategory;
+
+  const CreateItemPage({super.key, this.initialCategory});
   @override
   ConsumerState<CreateItemPage> createState() => _CreateItemPageState();
 }
@@ -33,16 +38,11 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
   final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
-  static const _categories = {
-    ItemCategory.books: ('Books', Icons.menu_book_rounded),
-    ItemCategory.electronics: ('Electronics', Icons.devices_rounded),
-    ItemCategory.stationery: ('Stationery', Icons.edit_rounded),
-    ItemCategory.equipment: ('Equipment', Icons.handyman_rounded),
-    ItemCategory.clothing: ('Clothing', Icons.checkroom_rounded),
-    ItemCategory.sports: ('Sports', Icons.sports_soccer_rounded),
-    ItemCategory.tools: ('Tools', Icons.build_rounded),
-    ItemCategory.other: ('Other', Icons.category_rounded),
-  };
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCategory != null) _category = widget.initialCategory!;
+  }
 
   static const _conditions = {
     ItemCondition.new_item: 'New',
@@ -313,12 +313,12 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8, runSpacing: 8,
-                  children: _categories.entries.map((e) {
+                  children: kCategoryMeta.entries.map((e) {
                     final selected = _category == e.key;
                     return FilterChip(
-                      avatar: Icon(e.value.$2, size: 16,
+                      avatar: Icon(e.value.icon, size: 16,
                         color: selected ? Colors.white : AppColors.textSecondary),
-                      label: Text(e.value.$1),
+                      label: Text(e.value.label),
                       selected: selected,
                       onSelected: (_) => setState(() => _category = e.key),
                       selectedColor: AppColors.primary,

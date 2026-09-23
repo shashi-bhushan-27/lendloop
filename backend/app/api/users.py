@@ -10,9 +10,10 @@ Endpoints:
   POST /users/me/avatar       — Upload profile avatar
 """
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
+from sqlalchemy.exc import IntegrityError
 from app.database.connection import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
@@ -42,7 +43,17 @@ async def update_my_profile(
 ):
     for field, value in update_data.model_dump(exclude_none=True).items():
         setattr(current_user, field, value)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        detail = "That value is already in use by another account."
+        error_text = str(exc.orig).lower()
+        if "reg_number" in error_text:
+            detail = "That registration number is already linked to another account."
+        elif "phone_number" in error_text:
+            detail = "That phone number is already linked to another account."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
     await db.refresh(current_user)
     return current_user
 

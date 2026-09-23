@@ -397,6 +397,15 @@ class _TransactionCard extends StatelessWidget {
                     onTap: () => onGenerateQR(tx.id, 'return'),
                   ),
 
+                // Borrower: scan the pickup QR the lender is showing
+                if (isBorrowing && tx.isAwaitingPickup)
+                  _ActionButton(
+                    label: 'Scan Pickup QR',
+                    icon: Icons.qr_code_scanner,
+                    color: AppColors.success,
+                    onTap: () => context.push('/qr/scan'),
+                  ),
+
                 // Lender actions
                 if (!isBorrowing && tx.isAwaitingPickup)
                   _ActionButton(

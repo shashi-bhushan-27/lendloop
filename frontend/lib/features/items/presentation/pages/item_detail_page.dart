@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/core/constants/category_meta.dart';
 import 'package:lendloop/models/item_model.dart';
 import 'package:lendloop/providers/items_provider.dart';
 import 'package:lendloop/providers/auth_provider.dart';
@@ -56,17 +57,6 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
     ItemCondition.good: AppColors.info,
     ItemCondition.fair: AppColors.warning,
     ItemCondition.poor: AppColors.error,
-  };
-
-  static const _categoryIcons = {
-    ItemCategory.books: Icons.menu_book_rounded,
-    ItemCategory.electronics: Icons.devices_rounded,
-    ItemCategory.stationery: Icons.edit_rounded,
-    ItemCategory.equipment: Icons.handyman_rounded,
-    ItemCategory.clothing: Icons.checkroom_rounded,
-    ItemCategory.sports: Icons.sports_soccer_rounded,
-    ItemCategory.tools: Icons.build_rounded,
-    ItemCategory.other: Icons.category_rounded,
   };
 
   Future<void> _sendBorrowRequest() async {
@@ -153,7 +143,7 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final condColor = _conditionColors[widget.item.condition] ?? AppColors.info;
-    final catIcon = _categoryIcons[widget.item.category] ?? Icons.category_rounded;
+    final catIcon = kCategoryMeta[widget.item.category]?.icon ?? Icons.category_rounded;
 
     return CustomScrollView(
       slivers: [

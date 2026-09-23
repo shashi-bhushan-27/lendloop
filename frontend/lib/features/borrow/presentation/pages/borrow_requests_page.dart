@@ -256,6 +256,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
               onApprove: _approve,
               onReject: _reject,
               onCancel: _cancel,
+              onRefresh: () async => ref.invalidate(borrowRequestsProvider),
               emptyMessage: 'No incoming borrow requests yet',
               emptyIcon: Icons.inbox_outlined,
             ),
@@ -265,6 +266,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
               onApprove: _approve,
               onReject: _reject,
               onCancel: _cancel,
+              onRefresh: () async => ref.invalidate(borrowRequestsProvider),
               emptyMessage: "You haven't requested to borrow anything yet",
               emptyIcon: Icons.send_outlined,
             ),
@@ -281,6 +283,7 @@ class _RequestList extends StatelessWidget {
   final Future<void> Function(String) onApprove;
   final Future<void> Function(String) onReject;
   final Future<void> Function(String) onCancel;
+  final Future<void> Function() onRefresh;
   final String emptyMessage;
   final IconData emptyIcon;
 
@@ -290,6 +293,7 @@ class _RequestList extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
+    required this.onRefresh,
     required this.emptyMessage,
     required this.emptyIcon,
   });
@@ -309,7 +313,7 @@ class _RequestList extends StatelessWidget {
       );
     }
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: onRefresh,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: requests.length,

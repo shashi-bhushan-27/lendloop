@@ -17,6 +17,7 @@ class QRResponse(BaseModel):
     id: UUID4
     transaction_id: UUID4
     qr_type: QRType
+    token: str
     qr_image_url: Optional[str]
     expires_at: datetime
     is_used: bool

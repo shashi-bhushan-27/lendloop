@@ -10,8 +10,6 @@ class AppShell extends StatelessWidget {
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.home_rounded, label: 'Home', path: '/home'),
-    _NavItem(icon: Icons.grid_view_rounded, label: 'Items', path: '/items'),
-    _NavItem(icon: Icons.swap_horiz_rounded, label: 'Borrows', path: '/borrow'),
     _NavItem(icon: Icons.receipt_long_rounded, label: 'History', path: '/transactions'),
     _NavItem(icon: Icons.person_rounded, label: 'Profile', path: '/profile'),
   ];

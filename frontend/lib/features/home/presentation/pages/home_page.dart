@@ -179,6 +179,11 @@ class _HeaderContent extends StatelessWidget {
                 ),
               ),
               IconButton(
+                icon: const Icon(Icons.handshake_outlined, color: Colors.white),
+                tooltip: 'Borrow Requests',
+                onPressed: () => context.push('/borrow'),
+              ),
+              IconButton(
                 icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
                 onPressed: () => context.push('/notifications'),
               ),

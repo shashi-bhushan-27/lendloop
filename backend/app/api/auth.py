@@ -10,17 +10,19 @@ Endpoints:
   POST /api/v1/auth/verify-otp  — Verify OTP and mark email verified
 """
 
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.connection import get_db
 from app.services.auth_service import register_or_login_user
 from app.auth.dependencies import get_current_user
+from app.auth.jwt_handler import create_access_token, create_refresh_token, verify_token
 from app.schemas.user import UserResponse
 from app.schemas.notification import FCMTokenRegister
 from app.models.notification import FCMToken
-from app.models.user import User
+from app.models.user import User, UserStatus
 from sqlalchemy import select, delete
+import uuid
 
 router = APIRouter()
 
@@ -52,6 +54,44 @@ async def login(
         "refresh_token": result["refresh_token"],
         "token_type": "bearer",
         "user": UserResponse.model_validate(result["user"]),
+    }
+
+
+@router.post("/refresh", summary="Refresh Access Token")
+async def refresh_token_endpoint(
+    refresh_token: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Exchanges a valid refresh token for a new access token (and a rotated
+    refresh token). This was documented but never actually implemented —
+    every client-side refresh attempt was silently failing (hitting a 404),
+    which meant any session died the moment its access token expired
+    (ACCESS_TOKEN_EXPIRE_MINUTES, 60 min) with no way to recover short of
+    logging out and back in.
+    """
+    payload = verify_token(refresh_token)
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not a refresh token.")
+
+    user_id_str = payload.get("sub")
+    try:
+        user_id = uuid.UUID(user_id_str)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload.")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if user.status == UserStatus.suspended:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is suspended.")
+
+    token_data = {"sub": str(user.id), "email": user.email, "role": user.role.value}
+    return {
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "token_type": "bearer",
     }
 
 

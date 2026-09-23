@@ -80,8 +80,15 @@ class ApiClient {
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
       );
-      final newToken = response.data['access_token'];
-      await _storage.write(key: AppConstants.accessTokenKey, value: newToken);
+      final newAccessToken = response.data['access_token'];
+      await _storage.write(key: AppConstants.accessTokenKey, value: newAccessToken);
+      // The backend rotates the refresh token on every use, so the old one
+      // stored here becomes invalid — persist the new one or the next
+      // refresh attempt (after this access token also expires) will fail.
+      final newRefreshToken = response.data['refresh_token'];
+      if (newRefreshToken != null) {
+        await _storage.write(key: AppConstants.refreshTokenKey, value: newRefreshToken);
+      }
       return true;
     } catch (_) {
       return false;

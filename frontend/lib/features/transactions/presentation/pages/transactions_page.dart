@@ -1,10 +1,11 @@
-import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/core/constants/category_meta.dart';
 import 'package:lendloop/models/transaction_model.dart';
 import 'package:lendloop/providers/auth_provider.dart';
 import 'package:lendloop/providers/transaction_provider.dart';
@@ -26,6 +27,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    // Refetch on every visit, not just after actions taken on this device —
+    // the other party (lender/borrower) may have completed a pickup/return
+    // on their own device since we last loaded this list, and a stale
+    // "Awaiting Pickup" card offering actions that the backend will now
+    // reject is worse than a brief reload.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(transactionsProvider);
+    });
   }
 
   @override
@@ -330,6 +339,58 @@ class _TransactionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (tx.item != null) ...[
+            GestureDetector(
+              onTap: () => context.push('/items/${tx.item!.id}'),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 56, height: 56,
+                      child: tx.item!.imageUrls.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: tx.item!.imageUrls.first,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => _itemFallbackIcon(),
+                              placeholder: (_, __) => _itemFallbackIcon(),
+                            )
+                          : _itemFallbackIcon(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tx.item!.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Icon(Icons.location_on_outlined, size: 12, color: AppColors.textTertiary),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              tx.item!.pickupLocation,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                            ),
+                          ),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
+                ],
+              ),
+            ),
+            const Divider(height: 24),
+          ],
           // Status row
           Row(
             children: [
@@ -437,6 +498,15 @@ class _TransactionCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _itemFallbackIcon() => Container(
+    color: AppColors.surfaceVariant,
+    alignment: Alignment.center,
+    child: Icon(
+      tx.item != null ? (kCategoryMeta[tx.item!.category]?.icon ?? Icons.inventory_2_outlined) : Icons.inventory_2_outlined,
+      color: AppColors.textTertiary, size: 24,
+    ),
+  );
 
   Widget _infoRow(IconData icon, String label, String value) {
     return Row(

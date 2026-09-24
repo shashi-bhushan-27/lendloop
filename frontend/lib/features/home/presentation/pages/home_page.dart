@@ -151,7 +151,7 @@ class _HeaderContent extends StatelessWidget {
                   children: [
                     Text(
                       'Hello, ${user?.fullName.split(' ').first ?? 'Student'}! 👋',
-                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.white),
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.onGradient),
                     ),
                     const SizedBox(height: 6),
                     GestureDetector(
@@ -159,7 +159,7 @@ class _HeaderContent extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.location_on_rounded, color: Colors.white70, size: 15),
+                          const Icon(Icons.location_on_rounded, color: AppColors.onGradientSecondary, size: 15),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
@@ -168,10 +168,10 @@ class _HeaderContent extends StatelessWidget {
                                   : 'VIT Campus · Add your block',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                              style: const TextStyle(color: AppColors.onGradientSecondary, fontSize: 12.5),
                             ),
                           ),
-                          const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 16),
+                          const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.onGradientSecondary, size: 16),
                         ],
                       ),
                     ),
@@ -179,12 +179,12 @@ class _HeaderContent extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.handshake_outlined, color: Colors.white),
+                icon: const Icon(Icons.handshake_outlined, color: AppColors.onGradient),
                 tooltip: 'Borrow Requests',
                 onPressed: () => context.push('/borrow'),
               ),
               IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+                icon: const Icon(Icons.notifications_none_rounded, color: AppColors.onGradient),
                 onPressed: () => context.push('/notifications'),
               ),
               if (user != null) TrustScoreBadge(score: user!.trustScore, size: 44),
@@ -193,9 +193,9 @@ class _HeaderContent extends StatelessWidget {
           const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+              boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: TextField(
               controller: searchCtrl,
@@ -448,23 +448,23 @@ class _TrendingBanner extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: AppColors.textInverse.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 14),
+                              Icon(Icons.local_fire_department_rounded, color: AppColors.onGradient, size: 14),
                               SizedBox(width: 4),
-                              Text('Trending', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                              Text('Trending', style: TextStyle(color: AppColors.onGradient, fontSize: 11, fontWeight: FontWeight.w700)),
                             ]),
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                                  style: const TextStyle(color: AppColors.onGradient, fontSize: 18, fontWeight: FontWeight.w700)),
                               const SizedBox(height: 4),
                               Text(kCategoryMeta[item.category]?.label ?? 'Item',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                  style: const TextStyle(color: AppColors.onGradientSecondary, fontSize: 12)),
                             ],
                           ),
                         ],
@@ -529,12 +529,12 @@ class _CategoryChipRow extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: isSelected ? Colors.white : color),
+            Icon(icon, size: 14, color: isSelected ? AppColors.textInverse : color),
             const SizedBox(width: 6),
           ],
           Text(label, style: TextStyle(
               fontSize: 12.5, fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : color)),
+              color: isSelected ? AppColors.textInverse : color)),
         ]),
       ),
     );
@@ -553,21 +553,21 @@ class _ListFirstItemCta extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.add_rounded, color: Colors.white),
+              decoration: BoxDecoration(color: AppColors.textInverse.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.add_rounded, color: AppColors.onGradient),
             ),
             const SizedBox(width: 14),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('List your first item', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text('List your first item', style: TextStyle(color: AppColors.onGradient, fontWeight: FontWeight.w700, fontSize: 15)),
                   SizedBox(height: 2),
-                  Text("Lend something and start earning trust score", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text("Lend something and start earning trust score", style: TextStyle(color: AppColors.onGradientSecondary, fontSize: 12)),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            const Icon(Icons.arrow_forward_rounded, color: AppColors.onGradient),
           ],
         ),
       ),

@@ -25,7 +25,7 @@ class ProfilePage extends ConsumerWidget {
             pinned: true,
             actions: [
               IconButton(
-                icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                icon: const Icon(Icons.edit_outlined, color: AppColors.onGradient),
                 tooltip: 'Edit Profile',
                 onPressed: () => context.push('/profile/edit'),
               ),
@@ -39,7 +39,7 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: 60),
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor: Colors.white,
+                      backgroundColor: AppColors.surface,
                       child: user.avatarUrl != null
                           ? ClipOval(
                               child: Image.network(user.avatarUrl!, width: 80, height: 80, fit: BoxFit.cover))
@@ -48,9 +48,9 @@ class ProfilePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(user.fullName,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: AppColors.onGradient, fontSize: 18, fontWeight: FontWeight.w700)),
                     Text(user.email,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        style: const TextStyle(color: AppColors.onGradientSecondary, fontSize: 13)),
                   ],
                 ),
               ),

@@ -1,10 +1,12 @@
 /// QR Scanner Page — Scan pickup / return QR codes
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:lendloop/core/constants/app_colors.dart';
+import 'package:lendloop/providers/transaction_provider.dart';
 import 'package:lendloop/services/api_client.dart';
 
 class QRScannerPage extends ConsumerStatefulWidget {
@@ -63,13 +65,32 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
       final response = await ApiClient.instance.post('/qr/verify', data: {'token': token});
       final data = response.data as Map<String, dynamic>;
       if (!mounted) return;
+      // Every other screen showing this transaction (Home, Transactions tabs,
+      // and — once they refetch — the other party's device) was holding
+      // stale status until now. Without this, a lender could still see
+      // "Awaiting Pickup" and try to re-generate a QR for a transaction the
+      // borrower had already completed, hitting a confusing 409.
+      ref.invalidate(transactionsProvider);
       _showResult(
         success: data['success'] as bool? ?? false,
         message: 'QR verified: ${data['qr_type'] ?? 'unknown'} confirmed!',
       );
     } catch (e) {
       if (!mounted) return;
-      _showResult(success: false, message: 'QR verification failed. Please try again.');
+      _showResult(success: false, message: apiErrorMessage(e, fallback: 'QR verification failed. Please try again.'));
+    }
+  }
+
+  /// Restarts the camera to scan another code — only offered on failure.
+  /// On success we don't offer this at all: the token is single-use, so
+  /// "scan again" would just fail, and repeatedly restarting the camera is
+  /// exactly the operation that's flaky on some devices.
+  Future<void> _retryScan() async {
+    Navigator.pop(context);
+    try {
+      await _controller.start();
+    } catch (_) {
+      // Ignored — the errorBuilder will keep showing the current failure state.
     }
   }
 
@@ -77,6 +98,8 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
     setState(() => _isProcessing = false);
     showModalBottomSheet(
       context: context,
+      isDismissible: success,
+      enableDrag: success,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         margin: const EdgeInsets.all(16),
@@ -90,26 +113,46 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
           children: [
             Icon(
               success ? Icons.check_circle_rounded : Icons.error_rounded,
-              color: Colors.white, size: 56,
+              color: AppColors.textInverse, size: 56,
             ),
             const SizedBox(height: 16),
             Text(
               success ? 'Verified!' : 'Failed',
-              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+              style: const TextStyle(color: AppColors.textInverse, fontSize: 24, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Text(message, style: const TextStyle(color: Colors.white70, fontSize: 14),
+            Text(message, style: const TextStyle(color: AppColors.onGradientSecondary, fontSize: 14),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white,
-                  foregroundColor: success ? AppColors.success : AppColors.error),
-              onPressed: () {
-                Navigator.pop(context);
-                _controller.start();
-              },
-              child: const Text('Scan Again'),
-            ),
+            if (success)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.surface, foregroundColor: AppColors.success),
+                onPressed: () {
+                  Navigator.pop(context); // close the sheet
+                  if (context.canPop()) context.pop(); // leave the scanner — camera never restarts
+                },
+                child: const Text('Done'),
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: AppColors.textInverse),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (context.canPop()) context.pop();
+                    },
+                    child: const Text('Close'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.surface, foregroundColor: AppColors.error),
+                    onPressed: _retryScan,
+                    child: const Text('Try Again'),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -160,7 +203,7 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
         return MobileScanner(
           controller: _controller,
           onDetect: _onBarcodeDetected,
-          errorBuilder: (context, error, child) => _CameraError(
+          errorBuilder: (context, error) => _CameraError(
             isPermissionDenied: error.errorCode == MobileScannerErrorCode.permissionDenied,
             message: error.errorCode == MobileScannerErrorCode.permissionDenied
                 ? 'LendLoop needs camera access to scan pickup and return QR codes. Allow it in Settings to continue.'
@@ -168,7 +211,7 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
                     '(camera, video call) is using it, then try again.',
             onRetry: _retryCamera,
           ),
-          placeholderBuilder: (context, child) =>
+          placeholderBuilder: (context) =>
               const Center(child: CircularProgressIndicator(color: AppColors.primary)),
           overlayBuilder: (context, constraints) => Stack(
             children: [

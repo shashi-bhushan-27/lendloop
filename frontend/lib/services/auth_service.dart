@@ -100,14 +100,10 @@ class AuthService {
         return const Left(DomainRestrictionFailure());
       }
 
-      // Pre-check: does this email already exist in Firebase?
-      final methods = await _firebaseAuth.fetchSignInMethodsForEmail(email);
-      if (methods.isNotEmpty) {
-        return const Left(AuthFailure(
-          'An account already exists with this email. Please log in instead.',
-        ));
-      }
-
+      // createUserWithEmailAndPassword already throws 'email-already-in-use'
+      // below when the account exists — no separate pre-check needed.
+      // (fetchSignInMethodsForEmail was removed in firebase_auth 6.x as an
+      // email-enumeration-protection measure.)
       final credential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,

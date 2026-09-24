@@ -1,3 +1,37 @@
+import 'package:lendloop/models/item_model.dart' show ItemCategory;
+
+/// Just enough item info to show on a transaction card (title, photo,
+/// pickup location) — comes eager-loaded in the same `/transactions`
+/// response, no extra request per card.
+class TransactionItemSummary {
+  final String id;
+  final String title;
+  final ItemCategory category;
+  final List<String> imageUrls;
+  final String pickupLocation;
+
+  const TransactionItemSummary({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.imageUrls,
+    required this.pickupLocation,
+  });
+
+  factory TransactionItemSummary.fromJson(Map<String, dynamic> json) {
+    return TransactionItemSummary(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      category: ItemCategory.values.firstWhere(
+        (c) => c.name == json['category'],
+        orElse: () => ItemCategory.other,
+      ),
+      imageUrls: (json['image_urls'] as List?)?.cast<String>() ?? const [],
+      pickupLocation: json['pickup_location'] as String? ?? '',
+    );
+  }
+}
+
 enum TransactionStatus {
   awaitingPickup,
   borrowed,
@@ -23,6 +57,7 @@ class TransactionModel {
   final String? returnImageUrl;
   final String? returnNotes;
   final DateTime createdAt;
+  final TransactionItemSummary? item;
 
   const TransactionModel({
     required this.id,
@@ -39,6 +74,7 @@ class TransactionModel {
     this.returnImageUrl,
     this.returnNotes,
     required this.createdAt,
+    this.item,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -74,6 +110,9 @@ class TransactionModel {
       returnImageUrl: json['return_image_url'] as String?,
       returnNotes: json['return_notes'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      item: json['item'] != null
+          ? TransactionItemSummary.fromJson(json['item'] as Map<String, dynamic>)
+          : null,
     );
   }
 

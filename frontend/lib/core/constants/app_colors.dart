@@ -88,4 +88,12 @@ class AppColors {
 
   // Shadow
   static const Color shadow = Color(0x1A000000);
+
+  // Overlay / Barrier
+  static const Color overlayBarrier = Color(0x73000000);   // ~45% black
+  static const Color overlayBadge = Color(0x8A000000);      // ~54% black
+
+  // On-gradient text/icons (white tones for use on colored backgrounds)
+  static const Color onGradient = Color(0xFFFFFFFF);          // pure white
+  static const Color onGradientSecondary = Color(0xB3FFFFFF); // white70
 }

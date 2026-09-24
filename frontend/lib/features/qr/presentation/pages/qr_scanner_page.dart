@@ -85,8 +85,8 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
   /// On success we don't offer this at all: the token is single-use, so
   /// "scan again" would just fail, and repeatedly restarting the camera is
   /// exactly the operation that's flaky on some devices.
-  Future<void> _retryScan() async {
-    Navigator.pop(context);
+  Future<void> _retryScan(BuildContext sheetContext) async {
+    Navigator.pop(sheetContext);
     try {
       await _controller.start();
     } catch (_) {
@@ -101,7 +101,13 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
       isDismissible: success,
       enableDrag: success,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
+      // Use this builder's own context for every Navigator.pop below — not
+      // the outer page context. Both /qr/scan and this sheet currently live
+      // on the root navigator so it wouldn't misfire today, but every other
+      // dialog/sheet in the app that mixed the two navigators caused a
+      // "closing it does nothing / wrong screen underneath" bug, so this
+      // stays consistent defensively.
+      builder: (sheetContext) => Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -128,7 +134,7 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.surface, foregroundColor: AppColors.success),
                 onPressed: () {
-                  Navigator.pop(context); // close the sheet
+                  Navigator.pop(sheetContext); // close the sheet
                   if (context.canPop()) context.pop(); // leave the scanner — camera never restarts
                 },
                 child: const Text('Done'),
@@ -140,7 +146,7 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
                   TextButton(
                     style: TextButton.styleFrom(foregroundColor: AppColors.textInverse),
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pop(sheetContext);
                       if (context.canPop()) context.pop();
                     },
                     child: const Text('Close'),
@@ -148,7 +154,7 @@ class _QRScannerPageState extends ConsumerState<QRScannerPage> {
                   const SizedBox(width: 12),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.surface, foregroundColor: AppColors.error),
-                    onPressed: _retryScan,
+                    onPressed: () => _retryScan(sheetContext),
                     child: const Text('Try Again'),
                   ),
                 ],

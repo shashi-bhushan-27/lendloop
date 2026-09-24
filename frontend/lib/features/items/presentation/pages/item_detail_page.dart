@@ -91,15 +91,15 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
     final action = isActive ? 'unlist' : 'relist';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(isActive ? 'Unlist Item?' : 'Relist Item?'),
         content: Text(isActive
             ? 'This will hide "${widget.item.title}" from the browse list. You can relist it anytime.'
             : 'This will make "${widget.item.title}" visible to other students again.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: isActive ? AppColors.error : AppColors.success,
             ),

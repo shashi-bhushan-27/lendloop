@@ -146,7 +146,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Decline Request'),
         content: TextField(
           controller: reasonCtrl,
@@ -157,9 +157,9 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
           maxLines: 2,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text('Decline', style: TextStyle(color: AppColors.textInverse)),
           ),

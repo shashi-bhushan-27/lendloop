@@ -83,7 +83,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
   void _showQRDialog(String token, String qrType) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(qrType == 'pickup' ? 'Pickup QR Code' : 'Return QR Code'),
         content: SizedBox(
           width: 280,
@@ -106,7 +106,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')),
         ],
       ),
     );
@@ -524,7 +524,7 @@ class _TransactionCard extends StatelessWidget {
   void _showEvidenceTypePicker(BuildContext context, String txId) {
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -536,7 +536,7 @@ class _TransactionCard extends StatelessWidget {
                 leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
                 title: const Text('Pickup Condition'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   onUploadEvidence(txId, 'pickup');
                 },
               ),
@@ -544,7 +544,7 @@ class _TransactionCard extends StatelessWidget {
                 leading: const Icon(Icons.camera_alt_outlined, color: AppColors.accent),
                 title: const Text('Return Condition'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   onUploadEvidence(txId, 'return');
                 },
               ),

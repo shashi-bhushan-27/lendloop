@@ -70,7 +70,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -86,7 +86,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                   icon: Icons.photo_library_outlined,
                   label: 'Gallery',
                   onTap: () async {
-                    Navigator.pop(context);
+                    Navigator.pop(sheetContext);
                     final remaining = 5 - _selectedImages.length;
                     final images = await _picker.pickMultiImage(limit: remaining);
                     if (images.isNotEmpty && mounted) {
@@ -99,7 +99,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                   icon: Icons.camera_alt_outlined,
                   label: 'Camera',
                   onTap: () async {
-                    Navigator.pop(context);
+                    Navigator.pop(sheetContext);
                     final image = await _picker.pickImage(
                       source: ImageSource.camera,
                       imageQuality: 85,

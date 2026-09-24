@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lendloop/core/constants/app_colors.dart';
 import 'package:lendloop/core/constants/category_meta.dart';
 import 'package:lendloop/providers/items_provider.dart';
+import 'package:lendloop/services/api_client.dart';
 import 'package:lendloop/widgets/item_card.dart';
 import 'package:lendloop/models/item_model.dart';
 
@@ -199,7 +200,7 @@ class _MyListingsTab extends ConsumerWidget {
     final myItemsAsync = ref.watch(myItemsProvider);
     return myItemsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text(apiErrorMessage(e, fallback: 'Could not load your listings.'))),
       data: (items) {
         if (items.isEmpty) {
           return Center(child: Column(
@@ -215,8 +216,8 @@ class _MyListingsTab extends ConsumerWidget {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () => context.push('/items/new'),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('List an Item', style: TextStyle(color: Colors.white)),
+                icon: const Icon(Icons.add, color: AppColors.textInverse),
+                label: const Text('List an Item', style: TextStyle(color: AppColors.textInverse)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               ),
             ],
@@ -304,7 +305,7 @@ class _MyListingsTab extends ConsumerWidget {
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(kCategoryMeta[item.category]?.icon ?? Icons.category_rounded, color: Colors.white, size: 28),
+      child: Icon(kCategoryMeta[item.category]?.icon ?? Icons.category_rounded, color: AppColors.textInverse, size: 28),
     );
   }
 }
@@ -332,7 +333,7 @@ class _CategoryChip extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 13, fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppColors.textSecondary,
+            color: selected ? AppColors.textInverse : AppColors.textSecondary,
           ),
         ),
       ),

@@ -43,7 +43,7 @@ class NotificationsPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('Notifications')),
       body: notifAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(apiErrorMessage(e, fallback: 'Could not load notifications.'))),
         data: (notifs) {
           if (notifs.isEmpty) {
             return Center(

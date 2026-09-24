@@ -136,7 +136,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to approve: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to approve request.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -161,7 +161,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Decline', style: TextStyle(color: Colors.white)),
+            child: const Text('Decline', style: TextStyle(color: AppColors.textInverse)),
           ),
         ],
       ),
@@ -185,7 +185,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decline: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to decline request.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -203,7 +203,7 @@ class _BorrowRequestsPageState extends ConsumerState<BorrowRequestsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to cancel request.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -382,7 +382,7 @@ class _RequestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: statusColor.withOpacity(0.3)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -402,13 +402,13 @@ class _RequestCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                        child: const Icon(Icons.image_not_supported, color: Colors.white54, size: 40),
+                        child: Icon(Icons.image_not_supported, color: AppColors.textInverse.withOpacity(0.54), size: 40),
                       ),
                     )
                   else
                     Container(
                       decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                      child: const Icon(Icons.inventory_2_outlined, color: Colors.white54, size: 40),
+                      child: Icon(Icons.inventory_2_outlined, color: AppColors.textInverse.withOpacity(0.54), size: 40),
                     ),
                   Positioned(
                     left: 0, right: 0, bottom: 0,
@@ -418,12 +418,12 @@ class _RequestCard extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                          colors: [Colors.transparent, AppColors.overlayBarrier],
                         ),
                       ),
                       child: Text(
                         itemTitle,
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                        style: const TextStyle(color: AppColors.onGradient, fontSize: 15, fontWeight: FontWeight.w700),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -441,11 +441,11 @@ class _RequestCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(statusIcon, color: Colors.white, size: 12),
+                          Icon(statusIcon, color: AppColors.textInverse, size: 12),
                           const SizedBox(width: 4),
                           Text(
                             request.status.name.toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                            style: const TextStyle(color: AppColors.textInverse, fontSize: 10, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -525,8 +525,8 @@ class _RequestCard extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => onApprove(request.id),
-                        icon: const Icon(Icons.check, size: 16, color: Colors.white),
-                        label: const Text('Approve', style: TextStyle(color: Colors.white)),
+                        icon: const Icon(Icons.check, size: 16, color: AppColors.textInverse),
+                        label: const Text('Approve', style: TextStyle(color: AppColors.textInverse)),
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
                       ),
                     ),

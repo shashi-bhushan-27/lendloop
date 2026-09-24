@@ -167,7 +167,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to list item.')), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -181,7 +181,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('List an Item'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
         elevation: 0,
       ),
       body: Stack(
@@ -255,9 +255,9 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                                 decoration: BoxDecoration(
                                   color: AppColors.error,
                                   shape: BoxShape.circle,
-                                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4)],
                                 ),
-                                child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                child: const Icon(Icons.close, color: AppColors.textInverse, size: 14),
                               ),
                             ),
                           ),
@@ -268,10 +268,10 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.black54,
+                                  color: AppColors.overlayBadge,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Cover', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                                child: const Text('Cover', style: TextStyle(color: AppColors.textInverse, fontSize: 9, fontWeight: FontWeight.w700)),
                               ),
                             ),
                         ],
@@ -317,16 +317,16 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                     final selected = _category == e.key;
                     return FilterChip(
                       avatar: Icon(e.value.icon, size: 16,
-                        color: selected ? Colors.white : AppColors.textSecondary),
+                        color: selected ? AppColors.textInverse : AppColors.textSecondary),
                       label: Text(e.value.label),
                       selected: selected,
                       onSelected: (_) => setState(() => _category = e.key),
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
-                        color: selected ? Colors.white : AppColors.textSecondary,
+                        color: selected ? AppColors.textInverse : AppColors.textSecondary,
                         fontSize: 12,
                       ),
-                      checkmarkColor: Colors.white,
+                      checkmarkColor: AppColors.textInverse,
                     );
                   }).toList(),
                 ),
@@ -412,9 +412,9 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
                     ),
                     child: _isLoading
                         ? const SizedBox(height: 20, width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textInverse))
                         : const Text('List Item',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textInverse)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -425,7 +425,7 @@ class _CreateItemPageState extends ConsumerState<CreateItemPage> {
           // Loading overlay
           if (_isLoading)
             Container(
-              color: Colors.black45,
+              color: AppColors.overlayBarrier,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(24),

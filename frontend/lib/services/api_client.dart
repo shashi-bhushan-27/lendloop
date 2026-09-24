@@ -123,3 +123,16 @@ class ApiClient {
     );
   }
 }
+
+/// Pulls the backend's `detail` message out of a failed request, falling
+/// back to [fallback] for anything else (network errors, non-JSON bodies,
+/// unrelated exceptions). Use this instead of showing `e.toString()`
+/// directly — Dio's default message is a multi-paragraph explanation of
+/// what the status code means, not the actual error the backend sent.
+String apiErrorMessage(Object error, {String fallback = 'Something went wrong. Please try again.'}) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map && data['detail'] is String) return data['detail'] as String;
+  }
+  return fallback;
+}

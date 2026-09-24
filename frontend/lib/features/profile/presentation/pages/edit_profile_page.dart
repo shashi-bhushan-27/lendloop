@@ -4,7 +4,6 @@
 /// endpoint (already accepts all these fields server-side — no backend or
 /// schema changes needed here).
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -81,11 +80,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      final message = e is DioException
-          ? (e.response?.data is Map ? e.response?.data['detail'] as String? : null) ?? 'Failed to save changes.'
-          : 'Failed to save changes.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.error),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to save changes.')), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -152,8 +148,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _isSaving
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textInverse))
+                    : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textInverse)),
               ),
             ),
           ],

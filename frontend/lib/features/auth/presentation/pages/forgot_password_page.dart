@@ -84,7 +84,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             gradient: AppColors.primaryGradient,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.lock_reset_rounded, color: Colors.white, size: 28),
+          child: const Icon(Icons.lock_reset_rounded, color: AppColors.textInverse, size: 28),
         ),
         const SizedBox(height: 24),
         Text('Forgot Password?', style: theme.textTheme.headlineSmall),
@@ -121,7 +121,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.textInverse,
                           ),
                         )
                       : const Text('Send Reset Link'),

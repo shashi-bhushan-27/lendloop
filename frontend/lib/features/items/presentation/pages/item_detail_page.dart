@@ -7,7 +7,6 @@ import 'package:lendloop/models/item_model.dart';
 import 'package:lendloop/providers/items_provider.dart';
 import 'package:lendloop/providers/auth_provider.dart';
 import 'package:lendloop/services/api_client.dart';
-import 'package:dio/dio.dart';
 
 class ItemDetailPage extends ConsumerWidget {
   final String itemId;
@@ -21,7 +20,7 @@ class ItemDetailPage extends ConsumerWidget {
     return Scaffold(
       body: itemAsync.when(
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
+        error: (e, _) => Scaffold(body: Center(child: Text(apiErrorMessage(e, fallback: 'Could not load this item.')))),
         data: (item) => _ItemDetailBody(item: item, currentUserId: currentUser?.id),
       ),
     );
@@ -80,7 +79,7 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send request: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to send request. Please try again.')), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isRequesting = false);
@@ -105,7 +104,7 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
               backgroundColor: isActive ? AppColors.error : AppColors.success,
             ),
             child: Text(isActive ? 'Unlist' : 'Relist',
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: AppColors.textInverse)),
           ),
         ],
       ),
@@ -132,7 +131,7 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to $action item: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to $action item.')), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isRequesting = false);
@@ -155,17 +154,17 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
                 ? Image.network(widget.item.imageUrls.first, fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                      child: const Icon(Icons.image_not_supported, size: 64, color: Colors.white54),
+                      child: Icon(Icons.image_not_supported, size: 64, color: AppColors.textInverse.withOpacity(0.54)),
                     ))
                 : Container(
                     decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                    child: Icon(catIcon, size: 80, color: Colors.white30),
+                    child: Icon(catIcon, size: 80, color: AppColors.textInverse.withOpacity(0.30)),
                   ),
           ),
           leading: IconButton(
             icon: const CircleAvatar(
-              backgroundColor: Colors.black45,
-              child: Icon(Icons.arrow_back, color: Colors.white, size: 18),
+              backgroundColor: AppColors.overlayBarrier,
+              child: Icon(Icons.arrow_back, color: AppColors.textInverse, size: 18),
             ),
             onPressed: () => context.pop(),
           ),
@@ -262,10 +261,10 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
                     child: ElevatedButton.icon(
                       onPressed: _isRequesting ? null : _sendBorrowRequest,
                       icon: _isRequesting
-                          ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.handshake_outlined, color: Colors.white),
+                          ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textInverse))
+                          : const Icon(Icons.handshake_outlined, color: AppColors.textInverse),
                       label: Text(_isRequesting ? 'Sending...' : 'Request to Borrow',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textInverse)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -299,15 +298,15 @@ class _ItemDetailBodyState extends ConsumerState<_ItemDetailBody> {
                       onPressed: _isRequesting ? null : () => _toggleListing(ref),
                       icon: _isRequesting
                           ? const SizedBox(height: 18, width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textInverse))
                           : Icon(
                               widget.item.isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: Colors.white),
+                              color: AppColors.textInverse),
                       label: Text(
                         _isRequesting
                             ? 'Processing...'
                             : widget.item.isActive ? 'Unlist This Item' : 'Relist This Item',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textInverse),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.item.isActive ? AppColors.error : AppColors.success,

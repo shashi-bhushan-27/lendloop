@@ -44,8 +44,7 @@ class LendLoopApp extends ConsumerWidget {
       title: 'LendLoop',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: router,
     );
   }

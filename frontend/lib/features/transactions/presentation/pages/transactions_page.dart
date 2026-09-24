@@ -46,7 +46,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to initiate return.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -65,7 +65,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate QR: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Failed to generate QR code.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -85,7 +85,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
                 data: token,
                 version: QrVersions.auto,
                 size: 240,
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.surface,
               ),
               const SizedBox(height: 12),
               Text(
@@ -127,7 +127,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(apiErrorMessage(e, fallback: 'Upload failed.')), backgroundColor: AppColors.error),
         );
       }
     }
@@ -323,7 +323,7 @@ class _TransactionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _statusColor.withOpacity(0.3)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       padding: const EdgeInsets.all(16),

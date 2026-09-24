@@ -57,7 +57,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             action: isAlreadyExists
                 ? SnackBarAction(
                     label: 'Log In',
-                    textColor: Colors.white,
+                    textColor: AppColors.textInverse,
                     onPressed: () => context.go('/login'),
                   )
                 : null,
@@ -148,7 +148,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         child: _isLoading
                             ? const SizedBox(
                                 height: 20, width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textInverse),
                               )
                             : const Text('Create Account'),
                       ),

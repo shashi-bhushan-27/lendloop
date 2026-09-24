@@ -181,7 +181,7 @@ class _EmailVerificationPageState
                 ),
                 child: const Icon(
                   Icons.email_outlined,
-                  color: Colors.white,
+                  color: AppColors.textInverse,
                   size: 44,
                 ),
               ),
@@ -317,7 +317,7 @@ class _EmailVerificationPageState
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.textInverse,
                             ),
                           )
                         : const Text('Verify Code'),

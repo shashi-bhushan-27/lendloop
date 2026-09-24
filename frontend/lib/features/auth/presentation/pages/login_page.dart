@@ -112,7 +112,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 child: const Icon(
                   Icons.swap_horiz_rounded,
-                  color: Colors.white,
+                  color: AppColors.textInverse,
                   size: 32,
                 ),
               ),
@@ -197,7 +197,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2, color: AppColors.textInverse),
                               )
                             : const Text('Sign In'),
                       ),

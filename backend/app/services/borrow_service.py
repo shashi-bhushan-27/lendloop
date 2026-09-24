@@ -136,6 +136,11 @@ async def approve_request(request_id: uuid.UUID, lender: User, db: AsyncSession)
         status=TransactionStatus.awaiting_pickup,
     )
     db.add(transaction)
+    # We already have `item` loaded (locked above) — assign it directly so
+    # the TransactionResponse serializer doesn't try to lazy-load
+    # transaction.item, which isn't safe on an async session and was
+    # causing a 500 on this endpoint.
+    transaction.item = item
 
     # Update item status
     item.status = ItemStatus.reserved

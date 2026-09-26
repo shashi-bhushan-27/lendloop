@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lendloop/services/auth_service.dart';
 import 'package:lendloop/services/api_client.dart';
+import 'package:lendloop/services/notification_service.dart';
 import 'package:lendloop/models/user_model.dart';
 import 'package:lendloop/core/constants/app_constants.dart';
 
@@ -47,8 +48,22 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     state = AsyncValue.data(user);
   }
 
+  /// Re-fetch the profile (trust score, lend/borrow counts) without passing
+  /// through a loading state, so screens showing the user don't flash a
+  /// spinner. Keeps the current value if the request fails.
+  Future<void> refresh() async {
+    if (state.valueOrNull == null) return;
+    try {
+      final response = await ApiClient.instance.get('/users/me');
+      state = AsyncValue.data(UserModel.fromJson(response.data as Map<String, dynamic>));
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
     try {
+      // Capped so a sleeping backend can't make logout hang on a cold start.
+      await NotificationService.unregisterForCurrentUser()
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
       await _authService.signOut();
     } catch (e) {
       // Log the error but still proceed to clear user state

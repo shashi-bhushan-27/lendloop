@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,7 +71,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
       });
       final token = response.data['token'] as String?;
       if (token != null && mounted) {
-        _showQRDialog(token, qrType);
+        _showQRDialog(txId, token, qrType);
       }
     } catch (e) {
       if (mounted) {
@@ -80,35 +82,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage>
     }
   }
 
-  void _showQRDialog(String token, String qrType) {
+  void _showQRDialog(String txId, String token, String qrType) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(qrType == 'pickup' ? 'Pickup QR Code' : 'Return QR Code'),
-        content: SizedBox(
-          width: 280,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              QrImageView(
-                data: token,
-                version: QrVersions.auto,
-                size: 240,
-                backgroundColor: AppColors.surface,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Show this to the ${qrType == 'pickup' ? 'borrower' : 'lender'} to scan.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')),
-        ],
-      ),
+      builder: (_) => _LiveQrDialog(txId: txId, token: token, qrType: qrType),
     );
   }
 
@@ -577,6 +554,95 @@ class _ActionButton extends StatelessWidget {
       backgroundColor: color.withOpacity(0.1),
       side: BorderSide(color: color.withOpacity(0.3)),
       onPressed: onTap,
+    );
+  }
+}
+
+/// Pickup/return QR dialog that closes itself once the other person has
+/// scanned it. It reacts to the push-driven refresh of [transactionsProvider],
+/// and while it's open also re-polls every few seconds as a backstop — some
+/// Android skins (MIUI in particular) delay FCM delivery.
+class _LiveQrDialog extends ConsumerStatefulWidget {
+  final String txId;
+  final String token;
+  final String qrType;
+
+  const _LiveQrDialog({required this.txId, required this.token, required this.qrType});
+
+  @override
+  ConsumerState<_LiveQrDialog> createState() => _LiveQrDialogState();
+}
+
+class _LiveQrDialogState extends ConsumerState<_LiveQrDialog> {
+  Timer? _poll;
+  bool _closed = false;
+
+  bool get _isPickup => widget.qrType == 'pickup';
+
+  @override
+  void initState() {
+    super.initState();
+    _poll = Timer.periodic(const Duration(seconds: 4), (_) => ref.invalidate(transactionsProvider));
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  void _onTransactionsChanged(List<TransactionModel> txs) {
+    if (_closed) return;
+    TransactionModel? tx;
+    for (final t in txs) {
+      if (t.id == widget.txId) { tx = t; break; }
+    }
+    if (tx == null) return;
+    final stillWaiting = _isPickup ? tx.isAwaitingPickup : tx.isReturnPending;
+    if (stillWaiting) return;
+
+    _closed = true;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(SnackBar(
+      content: Text(_isPickup ? 'Pickup confirmed — item handed over.' : 'Return confirmed — transaction complete.'),
+      backgroundColor: AppColors.success,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<TransactionModel>>>(transactionsProvider, (_, next) {
+      final txs = next.valueOrNull;
+      if (txs != null) _onTransactionsChanged(txs);
+    });
+
+    return AlertDialog(
+      title: Text(_isPickup ? 'Pickup QR Code' : 'Return QR Code'),
+      content: SizedBox(
+        width: 280,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            QrImageView(
+              data: widget.token,
+              version: QrVersions.auto,
+              size: 240,
+              backgroundColor: AppColors.surface,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Show this to the ${_isPickup ? 'borrower' : 'lender'} to scan.\n'
+              'This closes automatically once it\'s scanned.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+      ],
     );
   }
 }

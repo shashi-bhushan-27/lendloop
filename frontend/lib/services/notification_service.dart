@@ -1,10 +1,13 @@
 /// Firebase Cloud Messaging Service
 ///
 /// Handles:
-/// - FCM initialization
-/// - Foreground/background message handling
+/// - FCM initialization and notification permission
 /// - FCM token retrieval and registration with backend
-/// - Local notification display
+///
+/// Background/terminated pushes are shown by the system tray automatically
+/// (they carry a notification payload). Foreground display, data refresh and
+/// tap navigation are handled in `LendLoopApp` (main.dart), which has access
+/// to Riverpod and the router — see `push_sync.dart`.
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lendloop/services/api_client.dart';
@@ -32,16 +35,6 @@ class NotificationService {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      // TODO: Show local notification overlay using flutter_local_notifications
-    });
-
-    // Handle tap on notification when app is in background
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      // TODO: Navigate to relevant screen based on message.data
-    });
-
     // Get and store FCM token
     await _refreshFCMToken();
 
@@ -63,6 +56,26 @@ class NotificationService {
     } catch (e) {
       print('FCM Token error (non-fatal): $e');
     }
+  }
+
+  /// Attach this device to whoever is now signed in. The startup registration
+  /// alone missed anyone who logged in (or switched accounts) after launch,
+  /// so pushes for that account never reached this phone.
+  static Future<void> registerForCurrentUser() async {
+    try {
+      final token = await _fcm.getToken();
+      if (token != null) await _registerTokenWithBackend(token);
+    } catch (_) {}
+  }
+
+  /// Detach this device from the account being signed out so it stops getting
+  /// that account's pushes. Must run while the session token is still valid.
+  static Future<void> unregisterForCurrentUser() async {
+    try {
+      final token = await _fcm.getToken();
+      if (token == null) return;
+      await ApiClient.instance.dio.delete('/auth/fcm-token', data: {'token': token});
+    } catch (_) {}
   }
 
   static Future<void> _registerTokenWithBackend(String token) async {

@@ -16,6 +16,7 @@ from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import User
 from app.schemas.borrow_request import BorrowRequestCreate
 from app.services.notification_service import send_notification_to_user
+from app.core.cache import invalidate_items_list_after_commit
 from app.models.notification import NotificationType
 from loguru import logger
 import uuid
@@ -145,6 +146,7 @@ async def approve_request(request_id: uuid.UUID, lender: User, db: AsyncSession)
     # Update item status
     item.status = ItemStatus.reserved
     item.borrow_count += 1
+    invalidate_items_list_after_commit(db)
 
     # Reject all other pending requests for this item
     other_requests_result = await db.execute(
@@ -213,5 +215,17 @@ async def cancel_request(request_id: uuid.UUID, borrower: User, db: AsyncSession
 
     request.status = RequestStatus.cancelled
     request.responded_at = datetime.now(timezone.utc)
+
+    item_result = await db.execute(select(Item.title).where(Item.id == request.item_id))
+    item_title = item_result.scalar_one_or_none() or "your item"
+    await send_notification_to_user(
+        user_id=request.lender_id,
+        notification_type=NotificationType.system,
+        title="Request Cancelled",
+        body=f"{borrower.full_name} cancelled their request for {item_title}.",
+        reference_id=str(request.id),
+        reference_type="borrow_request",
+        db=db,
+    )
 
     return {"message": "Request cancelled successfully."}

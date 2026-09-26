@@ -25,6 +25,7 @@ from app.models.transaction import Transaction
 from app.schemas.user import UserResponse, UserPublicResponse, UserUpdate, UserContactResponse, TrustScoreResponse
 from app.services.trust_score_service import recalculate_trust_score
 import cloudinary.uploader
+import asyncio
 import uuid
 
 router = APIRouter()
@@ -140,7 +141,8 @@ async def upload_avatar(
     db: AsyncSession = Depends(get_db),
 ):
     contents = await file.read()
-    result = cloudinary.uploader.upload(
+    result = await asyncio.to_thread(
+        cloudinary.uploader.upload,
         contents,
         folder=f"lendloop/avatars/{current_user.id}",
         transformation=[{"width": 300, "height": 300, "crop": "fill"}]

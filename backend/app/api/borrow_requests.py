@@ -17,8 +17,11 @@ from app.database.connection import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.borrow_request import BorrowRequest, RequestStatus
+from app.models.item import Item
+from app.models.notification import NotificationType
 from app.schemas.borrow_request import BorrowRequestCreate, BorrowRequestReject, BorrowRequestResponse
 from app.services.borrow_service import create_borrow_request, approve_request, cancel_request
+from app.services.notification_service import send_notification_to_user
 from app.schemas.transaction import TransactionResponse
 from typing import List
 import uuid
@@ -81,12 +84,26 @@ async def reject(
         )
     )
     req = result.scalar_one_or_none()
+    from fastapi import HTTPException
     if not req:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Request not found.")
+    if req.status != RequestStatus.pending:
+        raise HTTPException(status_code=409, detail="Only pending requests can be declined.")
     req.status = RequestStatus.rejected
     req.rejection_reason = data.rejection_reason
     req.responded_at = datetime.now(timezone.utc)
+
+    item_result = await db.execute(select(Item.title).where(Item.id == req.item_id))
+    item_title = item_result.scalar_one_or_none() or "the item"
+    await send_notification_to_user(
+        user_id=req.borrower_id,
+        notification_type=NotificationType.request_rejected,
+        title="Request Declined",
+        body=f"Your request for {item_title} was declined: {data.rejection_reason}",
+        reference_id=str(req.id),
+        reference_type="borrow_request",
+        db=db,
+    )
     return {"message": "Request rejected"}
 
 

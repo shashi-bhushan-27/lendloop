@@ -20,7 +20,10 @@ from app.models.user import User
 from app.models.item import Item, ItemStatus
 from app.schemas.item import ItemCreate, ItemUpdate, ItemResponse, ItemListResponse
 from app.services.item_service import create_item, get_available_items, upload_item_image
+from app.core import cache
+from app.database.connection import run_after_commit
 from typing import Optional, List
+import json
 import uuid
 
 router = APIRouter()
@@ -35,8 +38,22 @@ async def list_items(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    # The listing is the same for every user (the app hides the viewer's own
+    # items client-side), so it's safe to cache globally per query variant.
+    variant = json.dumps(
+        {"s": (search or "").lower(), "c": category or "", "p": page, "n": page_size},
+        sort_keys=True,
+    )
+    cached = await cache.get_items_list(variant)
+    if cached is not None:
+        return cached
+
     items, total = await get_available_items(db, search, category, page, page_size)
-    return ItemListResponse(items=items, total=total, page=page, page_size=page_size)
+    response = ItemListResponse(items=items, total=total, page=page, page_size=page_size)
+    if cache.is_enabled():
+        payload = response.model_dump(mode="json")
+        run_after_commit(db, lambda: cache.set_items_list(variant, payload))
+    return response
 
 
 @router.post("", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
@@ -45,7 +62,9 @@ async def create_new_item(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await create_item(item_data, current_user, db)
+    item = await create_item(item_data, current_user, db)
+    cache.invalidate_items_list_after_commit(db)
+    return item
 
 
 @router.get("/my", response_model=List[ItemResponse])
@@ -85,6 +104,7 @@ async def update_item(
     for field, value in update_data.model_dump(exclude_none=True).items():
         setattr(item, field, value)
     await db.flush()
+    cache.invalidate_items_list_after_commit(db)
     return item
 
 
@@ -99,6 +119,7 @@ async def delete_item(
     if not item or item.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Not found or unauthorized.")
     item.is_active = False
+    cache.invalidate_items_list_after_commit(db)
 
 
 @router.post("/{item_id}/images")
@@ -119,4 +140,5 @@ async def upload_images(
         urls.append(url)
 
     item.image_urls = (item.image_urls or []) + urls
+    cache.invalidate_items_list_after_commit(db)
     return {"image_urls": item.image_urls}

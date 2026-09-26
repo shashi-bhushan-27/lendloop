@@ -4,6 +4,7 @@ Item Service
 Handles item CRUD, image upload to Cloudinary, and item search.
 """
 
+import asyncio
 import cloudinary
 import cloudinary.uploader
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,10 @@ async def upload_item_image(file: UploadFile, item_id: str) -> str:
     """Upload an item image to Cloudinary. Returns the secure URL."""
     try:
         contents = await file.read()
-        result = cloudinary.uploader.upload(
+        # Cloudinary's SDK is synchronous — run it in a worker thread so a slow
+        # upload doesn't stall every other request on the event loop.
+        result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
             contents,
             folder=f"lendloop/items/{item_id}",
             resource_type="image",

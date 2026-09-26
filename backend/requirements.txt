@@ -30,6 +30,9 @@ pillow==10.3.0
 # Cloudinary
 cloudinary==1.40.0
 
+# Cache (Upstash Redis over REST — optional, app runs without it)
+upstash-redis==1.8.0
+
 # Utilities
 python-dotenv==1.0.1
 tenacity==8.3.0

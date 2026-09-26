@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     OTP_RATE_LIMIT_COUNT: int = 3
     OTP_RATE_LIMIT_WINDOW_MINUTES: int = 15
 
+    # Upstash Redis (optional read cache — app runs fine without it)
+    UPSTASH_REDIS_REST_URL: str = ""
+    UPSTASH_REDIS_REST_TOKEN: str = ""
+    CACHE_ITEMS_TTL_SECONDS: int = 60
+
     class Config:
         env_file = ".env"
         case_sensitive = True

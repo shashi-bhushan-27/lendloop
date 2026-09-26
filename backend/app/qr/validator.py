@@ -25,6 +25,7 @@ from app.core.config import settings
 from app.services.trust_score_service import record_trust_score_event
 from app.services.notification_service import send_notification_to_user
 from app.models.notification import NotificationType
+from app.core.cache import invalidate_items_list_after_commit
 from loguru import logger
 import uuid
 
@@ -118,6 +119,30 @@ async def verify_qr_token(
         if lender:
             lender.total_lends += 1
 
+        invalidate_items_list_after_commit(db)
+
+        # The lender is usually still looking at the pickup QR on their own
+        # phone — this push is what tells their app the handover went through.
+        item_title = item.title if item else "the item"
+        await send_notification_to_user(
+            user_id=transaction.lender_id,
+            notification_type=NotificationType.system,
+            title="Pickup Confirmed",
+            body=f"{item_title} has been picked up. It's now marked as borrowed.",
+            reference_id=str(transaction.id),
+            reference_type="transaction",
+            db=db,
+        )
+        await send_notification_to_user(
+            user_id=transaction.borrower_id,
+            notification_type=NotificationType.system,
+            title="Pickup Confirmed",
+            body=f"You've picked up {item_title}. Return it by {transaction.due_date:%d %b}.",
+            reference_id=str(transaction.id),
+            reference_type="transaction",
+            db=db,
+        )
+
     elif qr_type_str == "return":
         if transaction.status != TransactionStatus.return_pending:
             raise HTTPException(
@@ -132,6 +157,7 @@ async def verify_qr_token(
         item = item_result.scalar_one_or_none()
         if item:
             item.status = ItemStatus.available
+        invalidate_items_list_after_commit(db)
 
         # Update borrower successful returns
         borrower_result = await db.execute(select(User).where(User.id == transaction.borrower_id))

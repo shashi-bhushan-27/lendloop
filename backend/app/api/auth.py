@@ -105,14 +105,19 @@ async def register_fcm_token(
     existing = await db.execute(
         select(FCMToken).where(FCMToken.token == payload.token)
     )
-    if not existing.scalar_one_or_none():
-        fcm = FCMToken(
+    record = existing.scalar_one_or_none()
+    if record is None:
+        db.add(FCMToken(
             user_id=current_user.id,
             token=payload.token,
             device_type=payload.device_type,
-        )
-        db.add(fcm)
-        await db.flush()
+        ))
+    elif record.user_id != current_user.id:
+        # Same phone, different account (log out → log in as someone else).
+        # Without re-assigning, the new account never got pushes on this device
+        # and the previous account kept receiving them.
+        record.user_id = current_user.id
+    await db.flush()
     return {"message": "FCM token registered"}
 
 
